@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}管理员编辑帖子{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>管理员编辑帖子</h2>
+    <form method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label>标题</label>
+            <input type="text" name="title" value="{{ post.title }}" required>
+        </div>
+        <div class="form-group">
+            <label>内容</label>
+            <textarea name="content" rows="10" required>{{ post.content }}</textarea>
+        </div>
+        <div class="form-group">
+            <label>鸟种名称（选填）</label>
+            <input type="text" name="bird_name" value="{{ post.bird_name or '' }}">
+        </div>
+        <div class="form-group">
+            <label>观察地点（选填）</label>
+            <input type="text" name="location" value="{{ post.location or '' }}">
+        </div>
+        <div class="form-group">
+            <label>观察照片（选填）</label>
+            {% if post.photo_url %}
+            <div style="margin-bottom:0.6rem;">
+                <img src="{{ post.photo_url }}" alt="当前照片" id="photo-preview"
+                     style="max-width:100%; max-height:260px; border-radius:10px; border:2px solid var(--green-soft); display:block;">
+                <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">当前照片，上传新图片将替换。</small>
+            </div>
+            {% else %}
+            <div id="photo-preview-wrap" style="display:none; margin-bottom:0.6rem;">
+                <img id="photo-preview" src="" alt="预览"
+                     style="max-width:100%; max-height:260px; border-radius:10px; border:2px solid var(--green-soft); display:block;">
+            </div>
+            {% endif %}
+            <input type="file" name="photo_file" id="photo-input"
+                   accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,image/tiff"
+                   style="border-radius:10px; padding:0.5rem; cursor:pointer;">
+            <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">支持 JPG、PNG、GIF、WebP、BMP、TIFF，留空则保持原照片不变。</small>
+        </div>
+        <button type="submit" class="btn">保存修改</button>
+        <a href="{{ url_for('admin.posts') }}" class="btn" style="background:#7a6a5a;">返回帖子管理</a>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('photo-input').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+        var preview = document.getElementById('photo-preview');
+        var wrap = document.getElementById('photo-preview-wrap');
+        preview.src = ev.target.result;
+        if (wrap) wrap.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+});
+</script>
+{% endblock %}

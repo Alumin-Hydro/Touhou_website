@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}幻想博物志{% endblock %} </title>
+    <link href="https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Noto+Serif+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            position: relative;
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center center;
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 252, 240, 0.3);
+            z-index: -1;
+        }
+        .container {
+            background: rgba(255, 252, 240, 0.85);
+            backdrop-filter: blur(3px);
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="brand">
+            <h1><a href="{{ url_for('index') }}">幻想博物志 </a></h1>
+            <p>「幻想乡的群鸟」</p>
+        </div>
+
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">首页</a>
+            {% for board in boards %}
+                <a href="{{ url_for('forum.board', board_id=board.id) }}">{{ board.name }}</a>
+            {% endfor %}
+            <a href="{{ url_for('birding.bird_list') }}">鸟类图鉴</a>
+            {% if current_user.is_authenticated and current_user.is_admin %}
+                <a href="{{ url_for('admin.dashboard') }}">管理后台</a>
+            {% endif %}
+            <form action="{{ url_for('forum.search') }}" method="get" style="display: inline-block; margin-left: auto;">
+                    <input type="text" name="q" placeholder="搜索帖子..." style="padding:0.3rem 0.6rem; border-radius:20px; border:none;">
+                    <button type="submit" style="background:none; border:none; color:white; cursor:pointer; padding:0.3rem 0.4rem; vertical-align:middle;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
+                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                    </button>
+                    </form>
+            {% if current_user.is_authenticated %}
+        	<div class="user-area">
+                <a href="{{ url_for('profile.view_profile', username=current_user.username) }}" style="display:flex; align-items:center; gap:0.4rem;">
+                    {% if current_user.avatar_url %}
+                        <img src="{{ current_user.avatar_url }}" alt="" style="width:22px; height:22px; border-radius:50%; object-fit:cover; vertical-align:middle;">
+                    {% else %}
+                        <span style="width:22px; height:22px; border-radius:50%; background:var(--green-soft); display:inline-flex; align-items:center; justify-content:center; font-size:0.75rem; color:white; flex-shrink:0;">{{ current_user.username[0] }}</span>
+                    {% endif %}
+                    {{ current_user.username }}
+                </a>
+        	<a href="{{ url_for('message.inbox') }}">私信{% if unread_count > 0 %} ({{ unread_count }}){% endif %}</a>
+                <a href="{{ url_for('profile.settings') }}">设置</a>
+        	<a href="{{ url_for('auth.logout') }}">登出</a>
+        	</div>
+            {% else %}
+                <div class="user-area">
+                    <a href="{{ url_for('auth.login') }}">登录</a>
+                    <a href="{{ url_for('auth.register') }}">注册</a>
+                </div>
+            {% endif %}
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for msg in messages %}
+                        <div class="card" style="background:#e9f5e9; border-left:5px solid var(--green-deep);">{{ msg }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+
+        <footer>
+            <p>幻想博物志 | 记录幻想的天空 | 由朱鹭子Nipponia、Alumin_Hydro制作</p>
+        </footer>
+    </div>
+
+    <script>
+        // 随机背景图片（请根据实际文件修改列表）
+        const bgImages = [
+           "{{ url_for('static', filename='backgrounds/Tokiko.jpg') }}",
+           "{{ url_for('static', filename='backgrounds/朱鹭子1.jpg') }}",
+           "{{ url_for('static', filename='backgrounds/朱鹭子2.jpg') }}",
+           "{{ url_for('static', filename='backgrounds/朱鹭子3.jpg') }}",
+           "{{ url_for('static', filename='backgrounds/朱鹭子4.jpg') }}",
+           "{{ url_for('static', filename='backgrounds/姬海棠果.jpg') }}",
+           "{{ url_for('static', filename='backgrounds/灵乌路空.jpg') }}"
+        ];
+        const validImages = bgImages.filter(url => !url.includes('None'));
+        if (validImages.length > 0) {
+            const randomIndex = Math.floor(Math.random() * validImages.length);
+            document.body.style.backgroundImage = `url('${validImages[randomIndex]}')`;
+        } else {
+            document.body.style.backgroundColor = "#fef7e0";
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

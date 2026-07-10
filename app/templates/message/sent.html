@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}已发送 - 东方观鸟论坛——幻想博物志{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>已发送的私信</h2>
+    <div style="margin-bottom: 1rem;">
+        <a href="{{ url_for('message.send') }}" class="btn">写私信</a>
+        <a href="{{ url_for('message.inbox') }}" class="btn">收件箱</a>
+    </div>
+    <hr>
+    {% for msg in messages %}
+    <div style="border-bottom:1px solid #ddd; padding:0.8rem 0;">
+        <div>
+            <strong>收件人: {{ msg.receiver.username }}</strong> · 
+            {{ msg.created_at.strftime('%Y-%m-%d %H:%M') }}
+            {% if msg.is_read %} 
+                <span style="color:green; font-size:0.8rem;">(已读)</span>
+            {% else %}
+                <span style="color:gray;">(未读)</span>
+            {% endif %}
+        </div>
+        <div>{{ msg.content[:100] }}{% if msg.content|length > 100 %}...{% endif %}</div>
+        <div style="margin-top:0.3rem;">
+            <a href="{{ url_for('message.delete', msg_id=msg.id) }}" class="btn-small" style="color:#c75c3c;" onclick="return confirm('删除这条私信？')">删除</a>
+        </div>
+    </div>
+    {% else %}
+    <p>还没有发送过任何私信。</p>
+    {% endfor %}
+</div>
+{% endblock %}

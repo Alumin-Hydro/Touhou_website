@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}发送私信{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>发送私信</h2>
+    <form method="post">
+        <div class="form-group">
+            <label>收件人用户名</label>
+            <input type="text" name="receiver" required placeholder="输入对方的用户名">
+        </div>
+        <div class="form-group">
+            <label>内容</label>
+            <textarea name="content" rows="6" required placeholder="想说点什么..."></textarea>
+        </div>
+        <button type="submit" class="btn">发送</button>
+        <a href="{{ url_for('message.inbox') }}" class="btn" style="background:#7a6a5a;">取消</a>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}注册 - 东方观鸟论坛——幻想博物志{% endblock %}
+{% block content %}
+<div class="card auth-card">
+    <h2>🌸 加入鸟x东的行列！</h2>
+    <form method="post">
+        <div class="form-group">
+            <label>用户名</label>
+            <input type="text" name="username" required>
+        </div>
+        <div class="form-group">
+            <label>电子邮箱</label>
+            <input type="email" name="email" required>
+            <small>将发送验证邮件至该邮箱（基于126 SMTP）</small>
+        </div>
+        <div class="form-group">
+            <label>密码</label>
+            <input type="password" name="password" required>
+        </div>
+        <button type="submit">📧 注册并接收验证邮件</button>
+    </form>
+    <p style="margin-top:1rem;">已有账号？ <a href="{{ url_for('auth.login') }}">登录</a></p>
+</div>
+{% endblock %}

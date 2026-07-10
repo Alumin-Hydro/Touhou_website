@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}收件箱 - 东方观鸟论坛——幻想博物志{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>收件箱</h2>
+    <div style="margin-bottom: 1rem;">
+        <a href="{{ url_for('message.send') }}" class="btn">写私信</a>
+        <a href="{{ url_for('message.sent') }}" class="btn">已发送</a>
+    </div>
+    <hr>
+    {% for msg in messages %}
+    <div style="border-bottom:1px solid #ddd; padding:0.8rem 0;">
+        <div>
+            <strong>{{ msg.sender.username }}</strong> · 
+            {{ msg.created_at.strftime('%Y-%m-%d %H:%M') }}
+            {% if not msg.is_read %} 
+                <span style="color:red; font-size:0.8rem;">(未读)</span>
+            {% endif %}
+        </div>
+        <div>
+            <a href="{{ url_for('message.view', msg_id=msg.id) }}">
+                {{ msg.content[:80] }}{% if msg.content|length > 80 %}...{% endif %}
+            </a>
+        </div>
+        <div style="margin-top:0.3rem;">
+            <a href="{{ url_for('message.delete', msg_id=msg.id) }}" class="btn-small" style="color:#c75c3c;" onclick="return confirm('删除这条私信？')">删除</a>
+        </div>
+    </div>
+    {% else %}
+    <p>暂无私信，去给其他用户写一封吧～</p>
+    {% endfor %}
+</div>
+{% endblock %}

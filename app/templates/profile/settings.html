@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}个人设置 - 幻想博物志{% endblock %}
+{% block content %}
+
+<div style="max-width:700px; margin:0 auto;">
+
+<div class="card">
+    <h2 style="margin-bottom:1.5rem;">
+        <a href="{{ url_for('profile.view_profile', username=current_user.username) }}" style="color:var(--green-soft); font-size:0.9rem; margin-left:1rem; text-decoration:none;">← 返回主页</a>
+        个人设置
+    </h2>
+
+    <!-- 个人资料 -->
+    <h3 style="margin-bottom:1rem; border-bottom:1px dashed var(--paper-dark); padding-bottom:0.5rem;">个人资料</h3>
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="profile">
+        <div class="form-group">
+            <label>头像</label>
+            <div style="display:flex; align-items:center; gap:1.2rem; margin-bottom:0.3rem;">
+                {% if current_user.avatar_url %}
+                    <img src="{{ current_user.avatar_url }}" alt="当前头像"
+                         id="avatar-preview"
+                         style="width:80px; height:80px; border-radius:50%; object-fit:cover; border:3px solid var(--green-soft); flex-shrink:0;">
+                {% else %}
+                    <div id="avatar-placeholder"
+                         style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, var(--green-soft), var(--green-deep)); display:flex; align-items:center; justify-content:center; font-size:2rem; color:white; flex-shrink:0;">
+                        {{ current_user.username[0] }}
+                    </div>
+                    <img id="avatar-preview" src="" alt="预览"
+                         style="display:none; width:80px; height:80px; border-radius:50%; object-fit:cover; border:3px solid var(--green-soft); flex-shrink:0;">
+                {% endif %}
+                <div style="flex:1;">
+                    <input type="file" name="avatar_file" id="avatar-input"
+                           accept="image/jpeg,image/png,image/gif,image/webp"
+                           style="width:100%; border-radius:10px; padding:0.5rem; cursor:pointer;">
+                    <small style="display:block; margin-top:0.4rem; color:#7a6a5a;">支持 JPG、PNG、GIF、WebP，最大 5MB。留空则保持原头像。</small>
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>个性签名 / 自定义头衔 <small style="color:#7a6a5a;">（最多64字）</small></label>
+            <input type="text" name="custom_title" maxlength="64"
+                   value="{{ current_user.custom_title or '' }}"
+                   placeholder="例如：幻想乡的游客、观鸟爱好者...">
+        </div>
+        <div class="form-group">
+            <label>个人简介</label>
+            <textarea name="bio" rows="4" placeholder="介绍一下自己吧，喜欢的东方角色、观鸟经历……">{{ current_user.bio or '' }}</textarea>
+        </div>
+        <div style="display:flex; align-items:center; gap:1rem; margin-top:0.5rem;">
+            <button type="submit">保存资料</button>
+            <small style="color:#7a6a5a;">当前等级：<strong>{{ current_user.get_rank_title() }}</strong>（自动根据贡献计算）</small>
+        </div>
+    </form>
+</div>
+
+<!-- 搜索偏好 -->
+<div class="card">
+    <h3 style="margin-bottom:1rem; border-bottom:1px dashed var(--paper-dark); padding-bottom:0.5rem;">搜索偏好</h3>
+    <form method="post">
+        <input type="hidden" name="action" value="search_prefs">
+        <div class="form-group">
+            <label>每页搜索结果数量</label>
+            <div class="radio-group">
+                {% for n in [10, 20, 30, 50] %}
+                <label class="radio-label">
+                    <input type="radio" name="search_per_page" value="{{ n }}"
+                           {% if (current_user.search_per_page or 20) == n %}checked{% endif %}>
+                    {{ n }} 条
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="form-group">
+            <label>搜索范围（帖子内容）</label>
+            <div class="radio-group">
+                <label class="radio-label">
+                    <input type="radio" name="search_scope" value="all"
+                           {% if (current_user.search_scope or 'all') == 'all' %}checked{% endif %}>
+                    标题 + 正文（全文搜索）
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="search_scope" value="title"
+                           {% if current_user.search_scope == 'title' %}checked{% endif %}>
+                    仅搜索标题
+                </label>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>搜索类型</label>
+            <div class="radio-group">
+                <label class="radio-label">
+                    <input type="radio" name="search_type" value="all"
+                           {% if (current_user.search_type or 'all') == 'all' %}checked{% endif %}>
+                    全部（帖子 + 用户）
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="search_type" value="posts"
+                           {% if current_user.search_type == 'posts' %}checked{% endif %}>
+                    仅帖子
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="search_type" value="users"
+                           {% if current_user.search_type == 'users' %}checked{% endif %}>
+                    仅用户
+                </label>
+            </div>
+        </div>
+        <button type="submit">保存偏好</button>
+    </form>
+</div>
+
+<!-- 修改密码 -->
+<div class="card">
+    <h3 style="margin-bottom:1rem; border-bottom:1px dashed var(--paper-dark); padding-bottom:0.5rem;">修改密码</h3>
+    <form method="post">
+        <input type="hidden" name="action" value="password">
+        <div class="form-group">
+            <label>当前密码</label>
+            <input type="password" name="current_password" required placeholder="输入当前密码以验证身份">
+        </div>
+        <div class="form-group">
+            <label>新密码 <small style="color:#7a6a5a;">（至少6位）</small></label>
+            <input type="password" name="new_password" required placeholder="输入新密码">
+        </div>
+        <div class="form-group">
+            <label>确认新密码</label>
+            <input type="password" name="confirm_password" required placeholder="再次输入新密码">
+        </div>
+        <button type="submit" style="background:var(--red-accent);">修改密码</button>
+    </form>
+</div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('avatar-input').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+        var preview = document.getElementById('avatar-preview');
+        var placeholder = document.getElementById('avatar-placeholder');
+        preview.src = ev.target.result;
+        preview.style.display = 'block';
+        if (placeholder) placeholder.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+});
+</script>
+{% endblock %}

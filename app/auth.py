@@ -1,0 +1,78 @@
+from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask_login import login_user, logout_user, login_required, current_user
+from app import db
+from app.models import User
+from app.utils import generate_verify_token, confirm_verify_token, send_verification_email
+from werkzeug.security import generate_password_hash
+
+auth_bp = Blueprint('auth', __name__)
+
+@auth_bp.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
+        # 简单校验
+        if User.query.filter_by(username=username).first():
+            flash('用户名已存在')
+            return redirect(url_for('auth.register'))
+        if User.query.filter_by(email=email).first():
+            flash('邮箱已注册')
+            return redirect(url_for('auth.register'))
+        user = User(username=username, email=email, verified=False)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+
+        token = generate_verify_token(email)
+        if send_verification_email(email, username, token):
+            flash('注册成功！验证邮件已发送，请查收并激活账户')
+        else:
+            flash('邮件发送失败，请联系管理员')
+            db.session.delete(user)
+            db.session.commit()
+            return redirect(url_for('auth.register'))
+        return redirect(url_for('auth.login'))
+    return render_template('auth/register.html')
+
+@auth_bp.route('/verify/<token>')
+def verify_email(token):
+    email = confirm_verify_token(token)
+    if not email:
+        flash('验证链接无效或已过期，请重新注册')
+        return redirect(url_for('auth.register'))
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash('用户不存在')
+        return redirect(url_for('auth.register'))
+    if user.verified:
+        flash('邮箱已激活，请直接登录')
+    else:
+        user.verified = True
+        db.session.commit()
+        flash('邮箱验证成功！现在可以登录了')
+    return redirect(url_for('auth.login'))
+
+@auth_bp.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            if not user.verified:
+                flash('请先验证邮箱')
+                return redirect(url_for('auth.login'))
+            login_user(user)
+            flash(f'欢迎回来，{username}')
+            return redirect(url_for('index'))
+        flash('用户名或密码错误')
+    return render_template('auth/login.html')
+
+@auth_bp.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('已退出登录')
+    return redirect(url_for('index'))

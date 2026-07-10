@@ -1,0 +1,575 @@
+/* 主题色：幻想乡的翠绿 + 和纸米色 + 朱红点缀 */
+:root {
+    --green-deep: #2a5c3e;
+    --green-soft: #88aa7c;
+    --paper: #fef7e0;
+    --paper-dark: #efe0c9;
+    --ink: #3e2a1f;
+    --red-accent: #c75c3c;
+    --red-light: #e6b8a8;
+    --shadow: rgba(0, 0, 0, 0.08);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--paper);
+    font-family: 'Noto Serif SC', 'Times New Roman', 'Yu Mincho', serif;
+    color: var(--ink);
+    line-height: 1.6;
+    position: relative;
+    background-size: cover;
+    background-attachment: fixed;
+    background-position: center center;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 252, 240, 0.75);
+    z-index: -1;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+    background: rgba(255, 252, 240, 0.85);
+    backdrop-filter: blur(3px);
+    border-radius: 20px;
+}
+
+/* 头部 / 标题 */
+.brand {
+    text-align: center;
+    margin-bottom: 2rem;
+    position: relative;
+}
+.brand h1 {
+    font-size: 2.8rem;
+    font-family: 'Kaushan Script', 'Noto Serif SC', cursive;
+    letter-spacing: 4px;
+    background: linear-gradient(135deg, var(--green-deep), var(--red-accent));
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    text-shadow: 2px 2px 4px var(--shadow);
+}
+.brand h1 a {
+    text-decoration: none;
+    color: inherit;
+}
+.brand p {
+    font-style: italic;
+    color: var(--green-soft);
+    border-top: 1px dashed var(--green-soft);
+    display: inline-block;
+    padding-top: 0.3rem;
+}
+
+/* 导航栏（和风木牌） */
+.nav-links {
+    background: var(--green-deep);
+    padding: 0.8rem 1.5rem;
+    border-radius: 40px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 8px var(--shadow);
+}
+.nav-links a {
+    color: var(--paper);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s;
+    padding: 0.3rem 0.8rem;
+    border-radius: 30px;
+}
+.nav-links a:hover {
+    background: var(--red-accent);
+    color: white;
+    transform: translateY(-2px);
+}
+.user-area {
+    margin-left: auto;
+    display: flex;
+    gap: 1rem;
+}
+.user-area span {
+    color: var(--paper);
+}
+
+/* 卡片样式（仿和风怀纸） */
+.card {
+    background: rgba(255, 252, 240, 0.9);
+    border-radius: 20px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 20px var(--shadow);
+    border: 1px solid #e9ddc3;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px var(--shadow);
+}
+
+/* 帖子列表样式 */
+.post-item {
+    padding: 1rem 0;
+    border-bottom: 1px dashed var(--paper-dark);
+}
+.post-title {
+    font-size: 1.3rem;
+    font-weight: bold;
+}
+.post-title a {
+    color: var(--green-deep);
+    text-decoration: none;
+}
+.post-title a:hover {
+    color: var(--red-accent);
+    text-decoration: underline;
+}
+.post-meta {
+    font-size: 0.85rem;
+    color: #7a6a5a;
+    margin-top: 0.3rem;
+}
+.bird-badge {
+    background: var(--red-light);
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 30px;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+}
+
+/* 观鸟记录特殊样式 */
+.bird-card {
+    background: linear-gradient(145deg, #fef5e7, #f8edda);
+    border-left: 6px solid var(--green-soft);
+}
+.bird-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--red-accent);
+}
+
+/* 表单样式（和风） */
+.form-group {
+    margin-bottom: 1.2rem;
+}
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+input, textarea, select {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    border: 1px solid #d4c7b2;
+    border-radius: 30px;
+    background: white;
+    font-family: inherit;
+    transition: 0.2s;
+}
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--green-deep);
+    box-shadow: 0 0 0 3px rgba(42, 92, 62, 0.2);
+}
+button, .btn {
+    background: var(--green-deep);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.8rem;
+    border-radius: 40px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: 0.2s;
+    text-decoration: none;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+button:hover, .btn:hover {
+    background: var(--red-accent);
+    transform: scale(0.97);
+}
+
+/* 分页 */
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 0.8rem;
+    margin: 2rem 0;
+}
+.pagination a, .pagination span {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--green-soft);
+    border-radius: 30px;
+    text-decoration: none;
+    color: var(--green-deep);
+}
+.pagination .current {
+    background: var(--green-deep);
+    color: white;
+    border-color: var(--green-deep);
+}
+
+/* 注册登录卡片 额外边框 */
+.auth-card {
+    max-width: 500px;
+    margin: 2rem auto;
+}
+
+/* 页脚 */
+footer {
+    text-align: center;
+    margin-top: 3rem;
+    padding: 1rem;
+    font-size: 0.8rem;
+    color: #7a6a5a;
+    border-top: 1px solid #e0d4c0;
+}
+
+/* 管理后台表格 */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(255, 252, 240, 0.9);
+}
+th, td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #e9ddc3;
+}
+th {
+    background: var(--green-deep);
+    color: white;
+}
+.btn-small {
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+}
+
+/* 置顶徽章 */
+.pin-badge {
+    background-color: #c75c3c;
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 10px;
+    margin-right: 0.5rem;
+    display: inline-block;
+}
+
+/* 禁言用户提示 */
+.muted-warning {
+    background: #ffe6e6;
+    border-left: 5px solid #c75c3c;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* 鸟类图鉴网格优化 */
+.bird-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.2rem;
+    margin: 1.2rem 0;
+}
+.bird-card-item {
+    background: var(--paper-dark);
+    padding: 1rem 0.5rem;
+    border-radius: 24px;
+    text-align: center;
+    text-decoration: none;
+    color: var(--ink);
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    word-break: break-word;
+}
+.bird-card-item:hover {
+    transform: translateY(-3px);
+    background: var(--green-soft);
+    color: white;
+}
+.bird-card-item strong {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 0.3rem;
+}
+.bird-card-item small {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .container {
+        margin: 1rem auto;
+    }
+    .nav-links {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.6rem;
+    }
+    .user-area {
+        margin-left: 0;
+    }
+    .brand h1 {
+        font-size: 2rem;
+    }
+}
+/* 搜索表单样式 */
+.nav-links form {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.nav-links input[type="text"] {
+    background: rgba(255,255,240,0.8);
+    border: none;
+    padding: 0.3rem 0.8rem;
+    border-radius: 30px;
+    font-size: 0.9rem;
+}
+.nav-links button {
+    background: none;
+    border: none;
+    color: var(--paper);
+    cursor: pointer;
+    font-weight: bold;
+}
+.nav-links button:hover {
+    color: var(--red-accent);
+}
+.post-excerpt {
+    margin-top: 0.3rem;
+    font-size: 0.9rem;
+    color: #5a4a3a;
+}
+
+/* ===== 个人主页 ===== */
+.profile-header-card .profile-header {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.profile-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--green-soft);
+    flex-shrink: 0;
+}
+
+.avatar-placeholder {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 3px solid var(--green-soft);
+    background: linear-gradient(135deg, var(--green-soft), var(--green-deep));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.8rem;
+    color: white;
+    font-family: 'Noto Serif SC', serif;
+    flex-shrink: 0;
+}
+
+.profile-info {
+    flex: 1;
+    min-width: 200px;
+}
+
+.rank-badge {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    background: var(--green-deep);
+    color: white;
+    margin-right: 0.4rem;
+}
+
+.custom-title-badge {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    background: var(--paper-dark);
+    color: var(--ink);
+    border: 1px solid #d4c7b2;
+    margin-right: 0.4rem;
+}
+
+/* 统计数字卡片行 */
+.profile-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: rgba(255, 252, 240, 0.9);
+    border-radius: 16px;
+    padding: 1.2rem;
+    text-align: center;
+    box-shadow: 0 4px 12px var(--shadow);
+    border: 1px solid #e9ddc3;
+}
+
+.stat-number {
+    display: block;
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--green-deep);
+    line-height: 1.1;
+}
+
+.stat-label {
+    font-size: 0.82rem;
+    color: #7a6a5a;
+    margin-top: 0.3rem;
+    display: block;
+}
+
+/* 成就徽章 */
+.achievement-badge {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    margin: 0.25rem;
+    font-weight: 500;
+    cursor: default;
+    transition: transform 0.15s;
+}
+.achievement-badge:hover { transform: translateY(-2px); }
+
+.badge-green  { background: #d4edda; color: #155724; border: 1px solid #b8dfc8; }
+.badge-blue   { background: #cce5ff; color: #004085; border: 1px solid #b3d4f5; }
+.badge-gold   { background: #fff3cd; color: #856404; border: 1px solid #f5dfa0; }
+.badge-teal   { background: #d1ecf1; color: #0c5460; border: 1px solid #9dd9e4; }
+.badge-purple { background: #e8d8f8; color: #6f42c1; border: 1px solid #cdb8f0; }
+.badge-orange { background: #fde8d8; color: #c35a17; border: 1px solid #f5c4a0; }
+.badge-red    { background: #f8d7da; color: #842029; border: 1px solid #f1aeb5; }
+.badge-dark   { background: var(--green-deep); color: white; border: 1px solid #1e4230; }
+.badge-gray   { background: #e9ecef; color: #495057; border: 1px solid #ced4da; }
+
+/* ===== 搜索结果 - 用户卡片 ===== */
+.user-search-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.user-search-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    padding: 0.9rem 1rem;
+    border-radius: 14px;
+    background: var(--paper-dark);
+    border: 1px solid #e0d4c0;
+    text-decoration: none;
+    color: var(--ink);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.user-search-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px var(--shadow);
+    border-color: var(--green-soft);
+}
+
+.user-search-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--green-soft);
+    flex-shrink: 0;
+}
+
+.user-search-avatar-placeholder {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--green-soft), var(--green-deep));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: white;
+    flex-shrink: 0;
+    border: 2px solid var(--green-soft);
+}
+
+.user-search-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.user-search-bio {
+    font-size: 0.82rem;
+    color: #7a6a5a;
+    margin: 0.1rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 设置页面单选组 */
+.radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    margin-top: 0.3rem;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--paper-dark);
+    padding: 0.4rem 0.9rem;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: normal;
+    border: 1px solid #d4c7b2;
+    transition: background 0.15s;
+}
+
+.radio-label:hover {
+    background: var(--green-soft);
+    color: white;
+}
+
+.radio-label input[type="radio"] {
+    width: auto;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+}

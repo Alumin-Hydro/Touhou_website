@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }} - 东方观鸟论坛——幻想博物志{% endblock %}
+{% block content %}
+<div class="card {% if post.bird_name %}bird-card{% endif %}">
+    <h2>
+        {% if post.is_pinned %}<span class="pin-badge">[顶]</span> {% endif %}
+        {{ post.title }}
+    </h2>
+    {% if post.bird_name %}
+        <div class="bird-name">鸟种: {{ post.bird_name }}</div>
+        <div>地点: {{ post.location or '未填写' }}</div>
+        {% if post.photo_url %}
+            <div style="margin:0.6rem 0;">
+                <img src="{{ post.photo_url }}" alt="观察照片"
+                     style="max-width:100%; max-height:480px; border-radius:10px; border:2px solid var(--green-soft); display:block; cursor:zoom-in;"
+                     onclick="this.style.maxHeight=this.style.maxHeight?'':'none'">
+            </div>
+        {% endif %}
+    {% endif %}
+    <div class="post-meta" style="margin-bottom:1rem;">
+        作者: <a href="{{ url_for('profile.view_profile', username=post.author.username) }}" style="color:var(--green-deep);">{{ post.author.username }}</a> · 发表于 {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}
+        {% if post.updated_at != post.created_at %}
+            · 最后编辑 {{ post.updated_at.strftime('%Y-%m-%d %H:%M') }}
+        {% endif %}
+    </div>
+    <div style="white-space: pre-wrap;">{{ post.content }}</div>
+
+    <!-- 操作按钮：作者可以编辑/删除，管理员可以编辑（管理员编辑走后台） -->
+    <div style="margin-top:1rem;">
+        {% if current_user == post.author %}
+            <a href="{{ url_for('forum.edit_post', post_id=post.id) }}" class="btn" style="background:#c75c3c;">编辑帖子</a>
+            <a href="{{ url_for('forum.delete_post', post_id=post.id) }}" class="btn" style="background:#7a6a5a;" onclick="return confirm('确定删除此帖子吗？');">删除帖子</a>
+        {% endif %}
+        {% if current_user.is_authenticated and current_user.is_admin %}
+            <a href="{{ url_for('admin.edit_post', post_id=post.id) }}" class="btn" style="background:#2a5c3e;">管理员编辑</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <h3>回复列表</h3>
+    {% for comment in post.comments %}
+        <div style="border-left: 3px solid var(--green-soft); padding-left: 1rem; margin-bottom: 1.2rem;">
+            <div>
+                <a href="{{ url_for('profile.view_profile', username=comment.author.username) }}" style="color:var(--green-deep); text-decoration:none; font-weight:bold;">{{ comment.author.username }}</a>
+                <small>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+            </div>
+            <div>{{ comment.content }}</div>
+            {% if current_user == comment.author or (current_user.is_authenticated and current_user.is_admin) %}
+                <a href="{{ url_for('forum.delete_comment', comment_id=comment.id) }}" style="font-size:0.8rem; color:var(--red-accent);" onclick="return confirm('删除此回复？');">删除回复</a>
+            {% endif %}
+        </div>
+    {% else %}
+        <p>还没有回复，抢个沙发吧～</p>
+    {% endfor %}
+
+    <!-- 回复表单：仅登录用户可见，若被禁言则显示提示 -->
+    {% if current_user.is_authenticated %}
+        {% if current_user.is_muted %}
+            <div class="muted-warning">
+                您已被禁言，无法发布回复。如有疑问请联系管理员。
+            </div>
+        {% else %}
+            <form method="post" action="{{ url_for('forum.add_comment', post_id=post.id) }}">
+                <div class="form-group">
+                    <label>写下你的见解：</label>
+                    <textarea name="content" rows="4" required placeholder="例如：今天在xx看到了珠颈斑鸠..."></textarea>
+                </div>
+                <button type="submit">发送回复</button>
+            </form>
+        {% endif %}
+    {% else %}
+        <p><a href="{{ url_for('auth.login') }}">登录</a> 后参与讨论。</p>
+    {% endif %}
+</div>
+{% endblock %}

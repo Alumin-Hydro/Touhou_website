@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}首页 - 幻想博物志{% endblock %}
+{% block content %}
+<div class="hero card">
+    <h2>欢迎来到幻想乡的观鸟站——幻想博物志！</h2>
+    <p>在这里，你不仅可以讨论东方Project，还可以分享真实或虚构的鸟类观察记录。<br>
+    朱鹭、鸦天狗、地狱鸦…… 甚至是「夜鹭」？（指朱鹭子x米斯蒂娅的组合）拿出你的相机和笔，加入观鸟x东方爱好者之列吧！</p>
+    {% if current_user.is_authenticated %}
+        <a href="{{ url_for('forum.new_post', board_id=1) }}" class="btn">✍️ 发布新记录</a>
+    {% else %}
+        <a href="{{ url_for('auth.register') }}" class="btn">注册成为幻想乡的观鸟爱好者</a>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3> 最新帖子</h3>
+    {% if latest_posts %}
+        {% for post in latest_posts %}
+        <div class="post-item">
+            <div class="post-title">
+                <a href="{{ url_for('forum.view_post', post_id=post.id) }}">{{ post.title }}</a>
+                {% if post.bird_name %}<span class="bird-badge">🐦 {{ post.bird_name }}</span>{% endif %}
+            </div>
+            <div class="post-meta">
+                <a href="{{ url_for('profile.view_profile', username=post.author.username) }}" style="color:var(--green-deep);">{{ post.author.username }}</a>
+                · {{ post.created_at.strftime('%Y-%m-%d %H:%M') }} · 板块: {{ post.board.name }}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>这里空空如也，就像赛钱箱一样，快来发第一个帖子（）</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3> 论坛版块</h3>
+    <div style="display:flex; flex-wrap:wrap; gap:1rem;">
+        {% for board in boards %}
+        <a href="{{ url_for('forum.board', board_id=board.id) }}" style="background:var(--green-soft); padding:0.5rem 1rem; border-radius:40px; color:white; text-decoration:none;">
+            {{ board.name }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

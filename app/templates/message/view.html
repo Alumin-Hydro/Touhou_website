@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}查看私信{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>私信详情</h2>
+    <div style="margin-bottom: 1rem;">
+        <strong>发件人:</strong> {{ msg.sender.username }}<br>
+        <strong>收件人:</strong> {{ msg.receiver.username }}<br>
+        <strong>时间:</strong> {{ msg.created_at.strftime('%Y-%m-%d %H:%M') }}<br>
+        <strong>状态:</strong> {% if msg.is_read %}已读{% else %}未读{% endif %}
+    </div>
+    <hr>
+    <div style="white-space: pre-wrap; background: #f9f5e8; padding:1rem; border-radius:10px;">
+        {{ msg.content }}
+    </div>
+    <div style="margin-top: 1rem;">
+        <a href="{{ url_for('message.inbox') }}" class="btn">返回收件箱</a>
+        <a href="{{ url_for('message.delete', msg_id=msg.id) }}" class="btn" style="background:#c75c3c;" onclick="return confirm('删除这条私信？')">删除</a>
+        {% if msg.sender_id != current_user.id %}
+            <a href="{{ url_for('message.send') }}?receiver={{ msg.sender.username }}" class="btn">回复</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

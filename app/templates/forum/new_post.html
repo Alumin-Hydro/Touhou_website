@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}发表新帖 - {{ board.name }} - 幻想博物志{% endblock %}
+
+{# ── 按板块定制文案与布局 ── #}
+{% if board.name == '观鸟记录' %}
+    {% set title_ph    = '今日目击：【鸟种】·【地点】' %}
+    {% set content_ph  = '记录观察的时间、天气、数量、行为细节……越详尽越好！' %}
+    {% set section_lbl = '观鸟记录详情' %}
+    {% set section_req = true %}
+    {% set bird_lbl    = '鸟种名称' %}
+    {% set loc_lbl     = '观察地点' %}
+    {% set photo_lbl   = '目击照片（强烈建议上传）' %}
+    {% set show_loc    = true %}
+    {% set photo_first = false %}
+{% elif board.name == '东方鸟类考据' %}
+    {% set title_ph    = '考据：【论题或角色名】' %}
+    {% set content_ph  = '展开考据思路，可引用原作台词、图鉴描述或现实鸟类资料……' %}
+    {% set section_lbl = '相关角色与鸟种' %}
+    {% set section_req = false %}
+    {% set bird_lbl    = '相关鸟种 / 东方角色' %}
+    {% set loc_lbl     = '登场场景 / 出典作品' %}
+    {% set photo_lbl   = '参考图片（截图、图鉴等）' %}
+    {% set show_loc    = true %}
+    {% set photo_first = false %}
+{% elif board.name == '绘画与创作' %}
+    {% set title_ph    = '作品标题' %}
+    {% set content_ph  = '介绍创作灵感、绘制过程，或对作品的说明……' %}
+    {% set section_lbl = '作品信息' %}
+    {% set section_req = false %}
+    {% set bird_lbl    = '涉及的鸟种 / 角色' %}
+    {% set loc_lbl     = '' %}
+    {% set photo_lbl   = '作品图片' %}
+    {% set show_loc    = false %}
+    {% set photo_first = true %}
+{% else %}
+    {% set title_ph    = '简明描述你想分享的内容' %}
+    {% set content_ph  = '分享你的想法、疑问或有趣见闻……' %}
+    {% set section_lbl = '观鸟信息' %}
+    {% set section_req = false %}
+    {% set bird_lbl    = '鸟种名称' %}
+    {% set loc_lbl     = '观察地点' %}
+    {% set photo_lbl   = '附图' %}
+    {% set show_loc    = true %}
+    {% set photo_first = false %}
+{% endif %}
+
+{% block content %}
+<div class="card" style="max-width:800px; margin:0 auto;">
+    <h2 style="margin-bottom:0.3rem;">在「{{ board.name }}」发表新帖</h2>
+    <p style="color:#7a6a5a; margin-bottom:1.5rem; font-size:0.9rem;">
+        <a href="{{ url_for('forum.board', board_id=board.id) }}" style="color:var(--green-soft); text-decoration:none;">← 返回版块</a>
+    </p>
+    <form method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label>帖子标题 <span style="color:var(--red-accent);">*</span></label>
+            <input type="text" name="title" required placeholder="{{ title_ph }}">
+        </div>
+
+        {# 绘画与创作：图片提前到正文前 #}
+        {% if photo_first %}
+        <div class="form-group">
+            <label>{{ photo_lbl }} <span style="color:var(--red-accent);">*</span></label>
+            <div id="photo-preview-wrap" style="display:none; margin-bottom:0.6rem;">
+                <img id="photo-preview" src="" alt="预览"
+                     style="max-width:100%; max-height:320px; border-radius:10px; border:2px solid var(--green-soft); display:block;">
+            </div>
+            <input type="file" name="photo_file" id="photo-input"
+                   accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,image/tiff"
+                   style="border-radius:10px; padding:0.5rem; cursor:pointer;">
+            <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">支持 JPG、PNG、GIF、WebP、BMP、TIFF，原图保存不压缩，最大 20MB。</small>
+        </div>
+        {% endif %}
+
+        <div class="form-group">
+            <label>正文内容 <span style="color:var(--red-accent);">*</span></label>
+            <textarea name="content" rows="10" required placeholder="{{ content_ph }}"></textarea>
+        </div>
+
+        {# 附加信息区块 #}
+        <div style="background:var(--paper-dark); border-radius:12px; padding:1rem; margin-bottom:1.2rem;">
+            <p style="font-size:0.9rem; font-weight:600; margin-bottom:0.8rem; color:var(--green-deep);">
+                {{ section_lbl }}{% if not section_req %}（可选）{% endif %}
+            </p>
+            <div class="form-group" style="margin-bottom:0.8rem;">
+                <label>{{ bird_lbl }}</label>
+                {% if board.name == '观鸟记录' %}
+                    <input type="text" name="bird_name" placeholder="例如：朱鹭、黑鸢……">
+                {% elif board.name == '东方鸟类考据' %}
+                    <input type="text" name="bird_name" placeholder="例如：射命丸文（鸦天狗）、朱鹮……">
+                {% elif board.name == '绘画与创作' %}
+                    <input type="text" name="bird_name" placeholder="例如：射命丸文、姬海棠果……">
+                {% else %}
+                    <input type="text" name="bird_name" placeholder="例如：朱鹭、鸦天狗……">
+                {% endif %}
+            </div>
+
+            {% if show_loc %}
+            <div class="form-group" style="margin-bottom:{% if not photo_first %}0{% else %}0.8rem{% endif %};">
+                <label>{{ loc_lbl }}</label>
+                {% if board.name == '观鸟记录' %}
+                    <input type="text" name="location" placeholder="例如：幻想乡妖怪之山山顶">
+                {% elif board.name == '东方鸟类考据' %}
+                    <input type="text" name="location" placeholder="例如：永夜抄第五面、《文文。新闻》……">
+                {% else %}
+                    <input type="text" name="location" placeholder="例如：幻想乡妖怪之山">
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {# 非绘画创作：照片在区块末尾 #}
+            {% if not photo_first %}
+            <div class="form-group" style="margin-bottom:0;">
+                <label>{{ photo_lbl }}</label>
+                <div id="photo-preview-wrap" style="display:none; margin-bottom:0.6rem;">
+                    <img id="photo-preview" src="" alt="预览"
+                         style="max-width:100%; max-height:260px; border-radius:10px; border:2px solid var(--green-soft); display:block;">
+                </div>
+                <input type="file" name="photo_file" id="photo-input"
+                       accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,image/tiff"
+                       style="border-radius:10px; padding:0.5rem; cursor:pointer;">
+                <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">支持 JPG、PNG、GIF、WebP、BMP、TIFF，原图保存不压缩，最大 20MB。</small>
+            </div>
+            {% endif %}
+        </div>
+
+        <div style="display:flex; gap:1rem; align-items:center;">
+            <button type="submit">发布帖子</button>
+            <a href="{{ url_for('forum.board', board_id=board.id) }}" class="btn" style="background:var(--paper-dark); color:var(--ink);">取消</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('photo-input').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+        var preview = document.getElementById('photo-preview');
+        var wrap = document.getElementById('photo-preview-wrap');
+        preview.src = ev.target.result;
+        wrap.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+});
+</script>
+{% endblock %}

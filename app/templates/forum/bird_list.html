@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}鸟类图鉴 - 东方观鸟论坛{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>鸟类图鉴——幻想乡与现实之群鸟</h2>
+    <p>以下是根据论坛帖子统计到的鸟类（包含现实与东方）</p>
+    <div class="bird-grid">
+        {% for bird in birds %}
+        <a href="{{ url_for('birding.bird_posts', bird_name=bird.bird_name) }}" class="bird-card-link">
+            <strong>{{ bird.bird_name }}</strong><br>
+            <small>{{ bird.count }} 篇观察记录</small>
+        </a>
+        {% else %}
+        <p>暂无鸟类记录，快去发布带有鸟名的帖子吧！</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

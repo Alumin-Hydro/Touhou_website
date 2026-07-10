@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}搜索「{{ keyword }}」- 幻想博物志{% endblock %}
+{% block content %}
+
+<div class="card">
+    <h2>搜索结果：「{{ keyword }}」</h2>
+    <p style="color:#7a6a5a; font-size:0.9rem;">
+        {% if search_type == 'all' %}全部内容
+        {% elif search_type == 'posts' %}仅帖子
+        {% elif search_type == 'users' %}仅用户
+        {% endif %}
+        · 范围：{% if scope == 'title' %}仅标题{% else %}标题 + 正文{% endif %}
+        · <a href="{{ url_for('profile.settings') }}" style="color:var(--green-soft);">修改搜索偏好</a>
+    </p>
+</div>
+
+<!-- 用户结果 -->
+{% if matched_users is defined and matched_users %}
+<div class="card">
+    <h3 style="margin-bottom:1rem;">用户 <small style="color:#7a6a5a; font-size:0.85rem;">（{{ matched_users|length }} 位）</small></h3>
+    <div class="user-search-grid">
+        {% for u in matched_users %}
+        <a href="{{ url_for('profile.view_profile', username=u.username) }}" class="user-search-card">
+            {% if u.avatar_url %}
+                <img src="{{ u.avatar_url }}" alt="" class="user-search-avatar">
+            {% else %}
+                <div class="user-search-avatar-placeholder">{{ u.username[0] }}</div>
+            {% endif %}
+            <div class="user-search-info">
+                <strong>{{ u.username }}</strong>
+                <span class="rank-badge" style="font-size:0.72rem; padding:0.1rem 0.5rem;">{{ u.get_rank_title() }}</span>
+                {% if u.custom_title %}
+                    <span style="font-size:0.8rem; color:#7a6a5a;">{{ u.custom_title }}</span>
+                {% endif %}
+                {% if u.bio %}
+                    <p class="user-search-bio">{{ u.bio[:80] }}{% if u.bio|length > 80 %}…{% endif %}</p>
+                {% endif %}
+                <small style="color:#aaa;">帖子 {{ u.post_count }} · 回复 {{ u.comment_count }}</small>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% elif search_type == 'users' %}
+<div class="card">
+    <h3 style="margin-bottom:0.5rem;">用户</h3>
+    <p style="color:#aaa;">没有找到匹配用户名或简介的用户。</p>
+</div>
+{% endif %}
+
+<!-- 帖子结果 -->
+{% if posts is not none %}
+<div class="card">
+    <h3 style="margin-bottom:1rem;">
+        帖子
+        {% if posts %}
+            <small style="color:#7a6a5a; font-size:0.85rem;">（共 {{ posts.total }} 篇）</small>
+        {% endif %}
+    </h3>
+    {% if posts and posts.items %}
+        {% for post in posts.items %}
+        <div class="post-item">
+            <div class="post-title">
+                <a href="{{ url_for('forum.view_post', post_id=post.id) }}">{{ post.title }}</a>
+                {% if post.bird_name %}<span class="bird-badge">{{ post.bird_name }}</span>{% endif %}
+            </div>
+            <div class="post-meta">
+                <a href="{{ url_for('profile.view_profile', username=post.author.username) }}" style="color:var(--green-deep);">{{ post.author.username }}</a>
+                · {{ post.board.name }} · {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}
+            </div>
+            <div class="post-excerpt">
+                {{ post.content[:150] }}{% if post.content|length > 150 %}…{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if posts.pages > 1 %}
+        <div class="pagination">
+            {% if posts.has_prev %}
+                <a href="{{ url_for('forum.search', q=keyword, page=posts.prev_num) }}">← 上一页</a>
+            {% endif %}
+            <span class="current">{{ posts.page }} / {{ posts.pages }}</span>
+            {% if posts.has_next %}
+                <a href="{{ url_for('forum.search', q=keyword, page=posts.next_num) }}">下一页 →</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    {% else %}
+        <p style="color:#aaa;">没有找到相关帖子。</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if (matched_users is not defined or not matched_users) and (posts is none or not posts or not posts.items) %}
+<div class="card" style="text-align:center; padding:2rem;">
+    <p style="color:#aaa; font-size:1.1rem;">未找到与「{{ keyword }}」相关的内容。</p>
+    <p style="font-size:0.85rem; color:#bbb; margin-top:0.5rem;">
+        换个关键词试试，或 <a href="{{ url_for('profile.settings') }}" style="color:var(--green-soft);">调整搜索偏好</a>
+    </p>
+</div>
+{% endif %}
+
+{% endblock %}

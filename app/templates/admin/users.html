@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}用户管理{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>用户列表</h2>
+    <table style="width:100%; border-collapse: collapse;">
+        <thead>
+            <tr><th>ID</th><th>用户名</th><th>邮箱</th><th>已验证</th><th>管理员</th><th>禁言状态</th><th>禁言到期</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+        {% for user in users %}
+        <tr style="border-bottom:1px solid #ddd;">
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ "是" if user.verified else "否" }}</td>
+            <td>{{ "是" if user.is_admin else "否" }}</td>
+            <td>
+                {% if user.is_muted %}
+                    禁言中
+                    {% if user.mute_expires %}
+                        (至 {{ user.mute_expires.strftime('%Y-%m-%d %H:%M') }})
+                    {% else %}
+                        (永久)
+                    {% endif %}
+                {% else %}
+                    正常
+                {% endif %}
+            </td>
+            <td>
+                {% if user.is_muted %}
+                    <a href="{{ url_for('admin.unmute_user', user_id=user.id) }}" class="btn" style="background:#2a5c3e;">解禁</a>
+                {% else %}
+                    <a href="{{ url_for('admin.mute_user', user_id=user.id) }}" class="btn" style="background:#c75c3c;">禁言</a>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{{ url_for('admin.toggle_admin', user_id=user.id) }}" class="btn" style="padding:0.2rem 0.5rem;">切换管理</a>
+                <a href="{{ url_for('admin.delete_user', user_id=user.id) }}" class="btn" style="background:#7a6a5a;" onclick="return confirm('确定删除？')">删除</a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

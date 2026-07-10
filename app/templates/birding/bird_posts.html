@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ bird_name }} 观察记录 - 东方观鸟论坛——幻想博物志{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>「{{ bird_name }}」的观察记录</h2>
+    {% if posts %}
+        {% for post in posts %}
+        <div class="post-item">
+            <div class="post-title">
+                <a href="{{ url_for('forum.view_post', post_id=post.id) }}">{{ post.title }}</a>
+                {% if post.location %}<span class="location">📍 {{ post.location }}</span>{% endif %}
+            </div>
+            <div class="post-meta">
+                {{ post.author.username }} · {{ post.created_at.strftime('%Y-%m-%d') }}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>没有找到关于「{{ bird_name }}」的帖子。</p>
+    {% endif %}
+</div>
+{% endblock %}
