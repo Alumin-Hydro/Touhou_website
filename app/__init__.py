@@ -39,7 +39,8 @@ def create_app(config_class=Config):
         from app.models import Board, Post
         boards = Board.query.all()
         latest_posts = Post.query.order_by(Post.created_at.desc()).limit(10).all()
-        return render_template('index.html', boards=boards, latest_posts=latest_posts)
+        bird_board = Board.query.filter_by(name='观鸟记录').first() or (boards[0] if boards else None)
+        return render_template('index.html', boards=boards, latest_posts=latest_posts, bird_board=bird_board)
 
     # 全局上下文处理器：让所有模板都能访问 boards 和当前用户的未读私信数
     @app.context_processor

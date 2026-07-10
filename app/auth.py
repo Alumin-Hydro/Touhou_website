@@ -2,7 +2,10 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from app import db
 from app.models import User
-from app.utils import generate_verify_token, confirm_verify_token, send_verification_email
+from app.utils import (
+    generate_verify_token, confirm_verify_token,
+    send_verification_email, send_reset_email,
+)
 from werkzeug.security import generate_password_hash
 
 auth_bp = Blueprint('auth', __name__)
@@ -76,3 +79,42 @@ def logout():
     logout_user()
     flash('已退出登录')
     return redirect(url_for('index'))
+
+@auth_bp.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        user = User.query.filter_by(email=email).first()
+        if user:
+            token = generate_verify_token(email, salt='pwd-reset')
+            send_reset_email(email, user.username, token)
+        # 无论邮箱是否存在都返回同样的提示，避免暴露注册信息
+        flash('如果该邮箱已注册，重置链接已发送，请查收')
+        return redirect(url_for('auth.login'))
+    return render_template('auth/forgot_password.html')
+
+@auth_bp.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    email = confirm_verify_token(token, salt='pwd-reset')
+    if not email:
+        flash('重置链接无效或已过期，请重新申请')
+        return redirect(url_for('auth.forgot_password'))
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash('用户不存在')
+        return redirect(url_for('auth.forgot_password'))
+
+    if request.method == 'POST':
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        if len(new_password) < 6:
+            flash('新密码至少需要6位')
+            return render_template('auth/reset_password.html', token=token)
+        if new_password != confirm_password:
+            flash('两次输入的新密码不一致')
+            return render_template('auth/reset_password.html', token=token)
+        user.set_password(new_password)
+        db.session.commit()
+        flash('密码已重置，请使用新密码登录')
+        return redirect(url_for('auth.login'))
+    return render_template('auth/reset_password.html', token=token)

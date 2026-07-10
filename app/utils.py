@@ -38,34 +38,22 @@ def delete_local_photo(url):
                     pass
             return
 
-def generate_verify_token(email):
+def generate_verify_token(email, salt='email-verify'):
     serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
-    return serializer.dumps(email, salt='email-verify')
+    return serializer.dumps(email, salt=salt)
 
-def confirm_verify_token(token, expiration=3600):
+def confirm_verify_token(token, expiration=3600, salt='email-verify'):
     serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
     try:
-        email = serializer.loads(token, salt='email-verify', max_age=expiration)
+        email = serializer.loads(token, salt=salt, max_age=expiration)
     except Exception:
         return None
     return email
 
-def send_verification_email(user_email, username, token):
-    """发送 HTML 验证邮件（增强版，强制 AUTH LOGIN）"""
-    verify_url = url_for('auth.verify_email', token=token, _external=True)
-    html = f"""
-    <html>
-    <body>
-        <h2>欢迎 {username} 加入 东方Project × 观鸟 论坛——幻想博物志</h2>
-        <p>请点击以下链接验证您的邮箱（1小时内有效）：</p>
-        <p><a href="{verify_url}">{verify_url}</a></p>
-        <p>如果无法点击，请复制链接到浏览器打开。</p>
-        <p style="color:green;">—— 诚邀您一同观察幻想乡的鸟类！ ——</p>
-    </body>
-    </html>
-    """
+def _send_html_email(user_email, subject, html):
+    """发送 HTML 邮件的底层 SMTP 逻辑（增强版，强制 AUTH LOGIN），成功返回 True。"""
     msg = MIMEText(html, 'html', 'utf-8')
-    msg['Subject'] = Header('[幻想博物志] 验证您的邮箱', 'utf-8')
+    msg['Subject'] = Header(subject, 'utf-8')
     msg['From'] = Header('幻想博物志', 'utf-8')
     msg['To'] = Header(user_email, 'utf-8')
 
@@ -98,7 +86,7 @@ def send_verification_email(user_email, username, token):
                 smtp.starttls()
                 smtp.login(sender_email, password)
                 smtp.sendmail(sender_email, [user_email], msg.as_string())
-        print(f"验证邮件发送至 {user_email} 成功")
+        print(f"邮件发送至 {user_email} 成功")
         return True
     except Exception as e:
         print(f"邮件发送失败，详细错误：{e}")
@@ -106,3 +94,35 @@ def send_verification_email(user_email, username, token):
         import traceback
         traceback.print_exc()
         return False
+
+def send_verification_email(user_email, username, token):
+    """发送邮箱验证邮件"""
+    verify_url = url_for('auth.verify_email', token=token, _external=True)
+    html = f"""
+    <html>
+    <body>
+        <h2>欢迎 {username} 加入 东方Project × 观鸟 论坛——幻想博物志</h2>
+        <p>请点击以下链接验证您的邮箱（1小时内有效）：</p>
+        <p><a href="{verify_url}">{verify_url}</a></p>
+        <p>如果无法点击，请复制链接到浏览器打开。</p>
+        <p style="color:green;">—— 诚邀您一同观察幻想乡的鸟类！ ——</p>
+    </body>
+    </html>
+    """
+    return _send_html_email(user_email, '[幻想博物志] 验证您的邮箱', html)
+
+def send_reset_email(user_email, username, token):
+    """发送密码重置邮件"""
+    reset_url = url_for('auth.reset_password', token=token, _external=True)
+    html = f"""
+    <html>
+    <body>
+        <h2>{username}，找回你的幻想博物志账号</h2>
+        <p>请点击以下链接重置密码（1小时内有效）：</p>
+        <p><a href="{reset_url}">{reset_url}</a></p>
+        <p>如果无法点击，请复制链接到浏览器打开。</p>
+        <p>如果这不是你本人的操作，请忽略此邮件。</p>
+    </body>
+    </html>
+    """
+    return _send_html_email(user_email, '[幻想博物志] 重置您的密码', html)

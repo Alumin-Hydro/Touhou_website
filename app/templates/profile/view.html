@@ -33,6 +33,10 @@
         <div style="margin-left:auto;">
             <a href="{{ url_for('profile.settings') }}" class="btn" style="background:var(--green-soft);">编辑资料</a>
         </div>
+        {% elif current_user.is_authenticated %}
+        <div style="margin-left:auto;">
+            <a href="{{ url_for('message.send', receiver=profile_user.username) }}" class="btn" style="background:var(--green-soft);">发私信</a>
+        </div>
         {% endif %}
     </div>
 </div>
