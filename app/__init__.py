@@ -1,12 +1,14 @@
 from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, current_user
+from flask_wtf import CSRFProtect
 from settings import Config
 
 db = SQLAlchemy()
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 login_manager.login_message = '请先登录以访问该页面'
+csrf = CSRFProtect()
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -14,6 +16,7 @@ def create_app(config_class=Config):
 
     db.init_app(app)
     login_manager.init_app(app)
+    csrf.init_app(app)
 
     # 注册蓝图
     from app.auth import auth_bp
@@ -46,5 +49,18 @@ def create_app(config_class=Config):
         if current_user.is_authenticated:
             unread_count = Message.query.filter_by(receiver_id=current_user.id, is_read=False).count()
         return dict(boards=Board.query.all(), unread_count=unread_count)
+
+    # 自定义错误页：保持网站和风视觉主题，而非 Flask 默认英文错误页
+    @app.errorhandler(403)
+    def forbidden(e):
+        return render_template('errors/403.html'), 403
+
+    @app.errorhandler(404)
+    def not_found(e):
+        return render_template('errors/404.html'), 404
+
+    @app.errorhandler(413)
+    def file_too_large(e):
+        return render_template('errors/413.html'), 413
 
     return app

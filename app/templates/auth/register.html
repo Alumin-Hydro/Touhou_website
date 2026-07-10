@@ -4,6 +4,7 @@
 <div class="card auth-card">
     <h2>🌸 加入鸟x东的行列！</h2>
     <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label>用户名</label>
             <input type="text" name="username" required>

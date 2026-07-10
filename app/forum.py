@@ -72,7 +72,7 @@ def edit_post(post_id):
         return redirect(url_for('forum.view_post', post_id=post.id))
     return render_template('forum/edit_post.html', post=post)
 
-@forum_bp.route('/delete_post/<int:post_id>')
+@forum_bp.route('/delete_post/<int:post_id>', methods=['POST'])
 @login_required
 def delete_post(post_id):
     """删除帖子：作者本人或管理员可删除"""
@@ -103,7 +103,7 @@ def add_comment(post_id):
         flash('回复已添加')
     return redirect(url_for('forum.view_post', post_id=post.id))
 
-@forum_bp.route('/delete_comment/<int:comment_id>')
+@forum_bp.route('/delete_comment/<int:comment_id>', methods=['POST'])
 @login_required
 def delete_comment(comment_id):
     """删除回复：作者本人或管理员可删除"""

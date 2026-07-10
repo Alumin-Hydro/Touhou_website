@@ -13,6 +13,7 @@
     <!-- 个人资料 -->
     <h3 style="margin-bottom:1rem; border-bottom:1px dashed var(--paper-dark); padding-bottom:0.5rem;">个人资料</h3>
     <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="profile">
         <div class="form-group">
             <label>头像</label>
@@ -58,6 +59,7 @@
 <div class="card">
     <h3 style="margin-bottom:1rem; border-bottom:1px dashed var(--paper-dark); padding-bottom:0.5rem;">搜索偏好</h3>
     <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="search_prefs">
         <div class="form-group">
             <label>每页搜索结果数量</label>
@@ -114,6 +116,7 @@
 <div class="card">
     <h3 style="margin-bottom:1rem; border-bottom:1px dashed var(--paper-dark); padding-bottom:0.5rem;">修改密码</h3>
     <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="password">
         <div class="form-group">
             <label>当前密码</label>

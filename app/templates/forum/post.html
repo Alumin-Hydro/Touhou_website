@@ -29,7 +29,10 @@
     <div style="margin-top:1rem;">
         {% if current_user == post.author %}
             <a href="{{ url_for('forum.edit_post', post_id=post.id) }}" class="btn" style="background:#c75c3c;">编辑帖子</a>
-            <a href="{{ url_for('forum.delete_post', post_id=post.id) }}" class="btn" style="background:#7a6a5a;" onclick="return confirm('确定删除此帖子吗？');">删除帖子</a>
+            <form method="post" action="{{ url_for('forum.delete_post', post_id=post.id) }}" style="display:inline;" onsubmit="return confirm('确定删除此帖子吗？');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn" style="background:#7a6a5a;">删除帖子</button>
+            </form>
         {% endif %}
         {% if current_user.is_authenticated and current_user.is_admin %}
             <a href="{{ url_for('admin.edit_post', post_id=post.id) }}" class="btn" style="background:#2a5c3e;">管理员编辑</a>
@@ -47,7 +50,10 @@
             </div>
             <div>{{ comment.content }}</div>
             {% if current_user == comment.author or (current_user.is_authenticated and current_user.is_admin) %}
-                <a href="{{ url_for('forum.delete_comment', comment_id=comment.id) }}" style="font-size:0.8rem; color:var(--red-accent);" onclick="return confirm('删除此回复？');">删除回复</a>
+                <form method="post" action="{{ url_for('forum.delete_comment', comment_id=comment.id) }}" style="display:inline;" onsubmit="return confirm('删除此回复？');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" style="font-size:0.8rem; color:var(--red-accent); background:none; border:none; padding:0; cursor:pointer; text-decoration:underline;">删除回复</button>
+                </form>
             {% endif %}
         </div>
     {% else %}
@@ -62,6 +68,7 @@
             </div>
         {% else %}
             <form method="post" action="{{ url_for('forum.add_comment', post_id=post.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label>写下你的见解：</label>
                     <textarea name="content" rows="4" required placeholder="例如：今天在xx看到了珠颈斑鸠..."></textarea>

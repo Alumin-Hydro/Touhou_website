@@ -37,7 +37,7 @@ def users():
     all_users = User.query.order_by(User.id).all()
     return render_template('admin/users.html', users=all_users)
 
-@admin_bp.route('/users/toggle_admin/<int:user_id>')
+@admin_bp.route('/users/toggle_admin/<int:user_id>', methods=['POST'])
 @login_required
 @admin_required
 def toggle_admin(user_id):
@@ -79,7 +79,7 @@ def mute_user(user_id):
         return redirect(url_for('admin.users'))
     return render_template('admin/mute_user.html', user=user)
 
-@admin_bp.route('/users/unmute/<int:user_id>')
+@admin_bp.route('/users/unmute/<int:user_id>', methods=['POST'])
 @login_required
 @admin_required
 def unmute_user(user_id):
@@ -93,7 +93,7 @@ def unmute_user(user_id):
     flash(f'用户 {user.username} 已解除禁言')
     return redirect(url_for('admin.users'))
 
-@admin_bp.route('/users/delete/<int:user_id>')
+@admin_bp.route('/users/delete/<int:user_id>', methods=['POST'])
 @login_required
 @admin_required
 def delete_user(user_id):
@@ -118,7 +118,7 @@ def posts():
     all_posts = Post.query.order_by(Post.is_pinned.desc(), Post.created_at.desc()).all()
     return render_template('admin/posts.html', posts=all_posts)
 
-@admin_bp.route('/posts/pin/<int:post_id>')
+@admin_bp.route('/posts/pin/<int:post_id>', methods=['POST'])
 @login_required
 @admin_required
 def toggle_pin(post_id):
@@ -147,7 +147,7 @@ def edit_post(post_id):
         return redirect(url_for('admin.posts'))
     return render_template('admin/edit_post.html', post=post)
 
-@admin_bp.route('/posts/delete/<int:post_id>')
+@admin_bp.route('/posts/delete/<int:post_id>', methods=['POST'])
 @login_required
 @admin_required
 def delete_post(post_id):

@@ -4,6 +4,7 @@
 <div class="card">
     <h2>管理员编辑帖子</h2>
     <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label>标题</label>
             <input type="text" name="title" value="{{ post.title }}" required>

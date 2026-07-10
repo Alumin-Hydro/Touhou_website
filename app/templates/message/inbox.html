@@ -23,7 +23,10 @@
             </a>
         </div>
         <div style="margin-top:0.3rem;">
-            <a href="{{ url_for('message.delete', msg_id=msg.id) }}" class="btn-small" style="color:#c75c3c;" onclick="return confirm('删除这条私信？')">删除</a>
+            <form method="post" action="{{ url_for('message.delete', msg_id=msg.id) }}" style="display:inline;" onsubmit="return confirm('删除这条私信？');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn-small" style="color:#c75c3c; background:none; border:none; cursor:pointer; text-decoration:underline;">删除</button>
+            </form>
         </div>
     </div>
     {% else %}

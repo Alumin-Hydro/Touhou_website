@@ -29,14 +29,23 @@
             </td>
             <td>
                 {% if user.is_muted %}
-                    <a href="{{ url_for('admin.unmute_user', user_id=user.id) }}" class="btn" style="background:#2a5c3e;">解禁</a>
+                    <form method="post" action="{{ url_for('admin.unmute_user', user_id=user.id) }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn" style="background:#2a5c3e;">解禁</button>
+                    </form>
                 {% else %}
                     <a href="{{ url_for('admin.mute_user', user_id=user.id) }}" class="btn" style="background:#c75c3c;">禁言</a>
                 {% endif %}
             </td>
             <td>
-                <a href="{{ url_for('admin.toggle_admin', user_id=user.id) }}" class="btn" style="padding:0.2rem 0.5rem;">切换管理</a>
-                <a href="{{ url_for('admin.delete_user', user_id=user.id) }}" class="btn" style="background:#7a6a5a;" onclick="return confirm('确定删除？')">删除</a>
+                <form method="post" action="{{ url_for('admin.toggle_admin', user_id=user.id) }}" style="display:inline;" onsubmit="return confirm('确定要切换该用户的管理员权限吗？');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn" style="padding:0.2rem 0.5rem;">切换管理</button>
+                </form>
+                <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}" style="display:inline;" onsubmit="return confirm('确定删除？');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn" style="background:#7a6a5a;">删除</button>
+                </form>
             </td>
         </tr>
         {% endfor %}

@@ -9,6 +9,7 @@ from app.models import User, Post
 profile_bp = Blueprint('profile', __name__)
 
 _ALLOWED_EXT = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+_AVATAR_MAX_BYTES = 5 * 1024 * 1024
 
 def _allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in _ALLOWED_EXT
@@ -31,25 +32,31 @@ def settings():
 
             avatar_file = request.files.get('avatar_file')
             if avatar_file and avatar_file.filename and _allowed_file(avatar_file.filename):
-                # 删除旧的本地头像文件
-                old_url = current_user.avatar_url or ''
-                if old_url.startswith('/static/avatars/'):
-                    old_path = os.path.join(
-                        current_app.root_path, 'static', 'avatars',
-                        os.path.basename(old_url)
-                    )
-                    if os.path.exists(old_path):
-                        try:
-                            os.remove(old_path)
-                        except OSError:
-                            pass
+                avatar_file.seek(0, os.SEEK_END)
+                avatar_size = avatar_file.tell()
+                avatar_file.seek(0)
+                if avatar_size > _AVATAR_MAX_BYTES:
+                    flash('头像文件不能超过5MB，本次未更新头像')
+                else:
+                    # 删除旧的本地头像文件
+                    old_url = current_user.avatar_url or ''
+                    if old_url.startswith('/static/avatars/'):
+                        old_path = os.path.join(
+                            current_app.root_path, 'static', 'avatars',
+                            os.path.basename(old_url)
+                        )
+                        if os.path.exists(old_path):
+                            try:
+                                os.remove(old_path)
+                            except OSError:
+                                pass
 
-                ext = avatar_file.filename.rsplit('.', 1)[1].lower()
-                filename = f"avatar_{current_user.id}_{uuid.uuid4().hex[:8]}.{ext}"
-                upload_folder = os.path.join(current_app.root_path, 'static', 'avatars')
-                os.makedirs(upload_folder, exist_ok=True)
-                avatar_file.save(os.path.join(upload_folder, filename))
-                current_user.avatar_url = f"/static/avatars/{filename}"
+                    ext = avatar_file.filename.rsplit('.', 1)[1].lower()
+                    filename = f"avatar_{current_user.id}_{uuid.uuid4().hex[:8]}.{ext}"
+                    upload_folder = os.path.join(current_app.root_path, 'static', 'avatars')
+                    os.makedirs(upload_folder, exist_ok=True)
+                    avatar_file.save(os.path.join(upload_folder, filename))
+                    current_user.avatar_url = f"/static/avatars/{filename}"
 
             current_user.bio = bio if bio else None
             current_user.custom_title = custom_title if custom_title else None

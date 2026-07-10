@@ -23,7 +23,10 @@ def sent():
 def send():
     if request.method == 'POST':
         receiver_name = request.form.get('receiver')
-        content = request.form.get('content')
+        content = request.form.get('content', '')
+        if not content.strip():
+            flash('私信内容不能为空')
+            return redirect(url_for('message.send', receiver=receiver_name))
         receiver = User.query.filter_by(username=receiver_name).first()
         if not receiver:
             flash('收件人不存在，和恋恋一样难以被人看到呢...')
@@ -36,7 +39,7 @@ def send():
         db.session.commit()
         flash('私信已发送')
         return redirect(url_for('message.inbox'))
-    return render_template('message/send.html')
+    return render_template('message/send.html', receiver=request.args.get('receiver', ''))
 
 @message_bp.route('/view/<int:msg_id>')
 @login_required
@@ -49,7 +52,7 @@ def view(msg_id):
         db.session.commit()
     return render_template('message/view.html', msg=msg)
 
-@message_bp.route('/delete/<int:msg_id>')
+@message_bp.route('/delete/<int:msg_id>', methods=['POST'])
 @login_required
 def delete(msg_id):
     msg = Message.query.get_or_404(msg_id)

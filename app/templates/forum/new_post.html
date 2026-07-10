@@ -51,6 +51,7 @@
         <a href="{{ url_for('forum.board', board_id=board.id) }}" style="color:var(--green-soft); text-decoration:none;">← 返回版块</a>
     </p>
     <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label>帖子标题 <span style="color:var(--red-accent);">*</span></label>
             <input type="text" name="title" required placeholder="{{ title_ph }}">

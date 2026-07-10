@@ -19,9 +19,15 @@
             <td>{{ post.created_at.strftime('%Y-%m-%d') }}</td>
             <td>{{ "是" if post.is_pinned else "否" }}</td>
             <td>
-                <a href="{{ url_for('admin.toggle_pin', post_id=post.id) }}" class="btn" style="padding:0.2rem 0.5rem;">{{ "取消置顶" if post.is_pinned else "置顶" }}</a>
+                <form method="post" action="{{ url_for('admin.toggle_pin', post_id=post.id) }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn" style="padding:0.2rem 0.5rem;">{{ "取消置顶" if post.is_pinned else "置顶" }}</button>
+                </form>
                 <a href="{{ url_for('admin.edit_post', post_id=post.id) }}" class="btn" style="padding:0.2rem 0.5rem;">编辑</a>
-                <a href="{{ url_for('admin.delete_post', post_id=post.id) }}" class="btn" style="background:#c75c3c;" onclick="return confirm('确定删除？')">删除</a>
+                <form method="post" action="{{ url_for('admin.delete_post', post_id=post.id) }}" style="display:inline;" onsubmit="return confirm('确定删除？');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn" style="background:#c75c3c;">删除</button>
+                </form>
             </td>
         </tr>
         {% endfor %}

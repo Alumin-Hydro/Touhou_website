@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}无法进入此地 - 幻想博物志{% endblock %}
+{% block content %}
+<div class="card" style="text-align:center; padding:3rem 1.5rem;">
+    <h2 style="margin-bottom:0.8rem;">🚫 结界拦住了你</h2>
+    <p style="color:#7a6a5a;">这片天空不对你开放——可能需要更高的权限，或者这不是你的领地。</p>
+    <p style="margin-top:1.5rem;"><a href="{{ url_for('index') }}" class="btn">返回幻想乡首页</a></p>
+</div>
+{% endblock %}

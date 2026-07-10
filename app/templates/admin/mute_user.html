@@ -4,6 +4,7 @@
 <div class="card">
     <h2>禁言用户: {{ user.username }}</h2>
     <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label>禁言时长</label>
             <select name="duration" required>
