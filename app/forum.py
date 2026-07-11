@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from app import db
 from app.models import Board, Post, Comment, User
-from app.utils import save_post_photo, delete_local_photo
+from app.oss import resolve_upload, delete_by_url
 from sqlalchemy import or_
 
 forum_bp = Blueprint('forum', __name__)
@@ -35,7 +35,8 @@ def new_post(board_id):
         content = request.form['content']
         bird_name = request.form.get('bird_name', '')
         location = request.form.get('location', '')
-        photo_url = save_post_photo(request.files.get('photo_file')) or ''
+        # 图片已由浏览器直传 OSS，表单里只带回一个 key
+        photo_url = resolve_upload(request.form.get('photo_key'), current_user.id) or ''
         post = Post(
             title=title,
             content=content,
@@ -63,9 +64,9 @@ def edit_post(post_id):
         post.content = request.form['content']
         post.bird_name = request.form.get('bird_name', '')
         post.location = request.form.get('location', '')
-        new_photo = save_post_photo(request.files.get('photo_file'))
+        new_photo = resolve_upload(request.form.get('photo_key'), current_user.id)
         if new_photo:
-            delete_local_photo(post.photo_url)
+            delete_by_url(post.photo_url)
             post.photo_url = new_photo
         db.session.commit()
         flash('帖子已更新')
@@ -80,7 +81,7 @@ def delete_post(post_id):
     if post.author != current_user and not current_user.is_admin:
         abort(403)
     board_id = post.board_id
-    delete_local_photo(post.photo_url)
+    delete_by_url(post.photo_url)
     db.session.delete(post)
     db.session.commit()
     flash('帖子已删除')

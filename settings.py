@@ -12,6 +12,14 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///forum.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    # SQLite 在 gunicorn 多进程下会有并发写竞争。给锁留出等待时间，
+    # 否则拿不到锁会立刻抛 "database is locked" 而不是稍等重试。
+    SQLALCHEMY_ENGINE_OPTIONS = (
+        {'connect_args': {'timeout': 15}}
+        if SQLALCHEMY_DATABASE_URI.startswith('sqlite')
+        else {}
+    )
+
     MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.126.com')
     MAIL_PORT = int(os.getenv('MAIL_PORT', 465))
     MAIL_USE_SSL = True
@@ -20,4 +28,25 @@ class Config:
     MAIL_DEFAULT_SENDER = MAIL_USERNAME
 
     POSTS_PER_PAGE = 20
-    MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 上传限制 20MB（帖子原图不压缩）
+
+    # 图片由浏览器直传 OSS，不再经过后端，所以这里只需要够普通表单用。
+    # （3M 出向带宽 + 40G 盘扛不住 20MB 原图的分发与存储，见 DEPLOYMENT.md）
+    MAX_CONTENT_LENGTH = 2 * 1024 * 1024
+
+    # ── 阿里云 OSS（图片直传）────────────────────────────────────
+    # 用 RAM 子账号，且只授权这一个 bucket；主账号 AccessKey 泄露 = 整个云账号沦陷。
+    OSS_ACCESS_KEY_ID = os.getenv('OSS_ACCESS_KEY_ID')
+    OSS_ACCESS_KEY_SECRET = os.getenv('OSS_ACCESS_KEY_SECRET')
+    OSS_BUCKET = os.getenv('OSS_BUCKET')
+
+    # 公网 endpoint：用于签发给浏览器的预签名 PUT URL。
+    OSS_ENDPOINT = os.getenv('OSS_ENDPOINT')
+
+    # 后端自用（head_object / delete_object）。ECS 上填同地域的内网 endpoint，
+    # 走内网免流量费、也不占那 3M 出向带宽；本地开发不填，自动回落到公网。
+    OSS_ENDPOINT_INTERNAL = os.getenv('OSS_ENDPOINT_INTERNAL') or OSS_ENDPOINT
+
+    # 图片对外的访问前缀，存进 photo_url / avatar_url 的就是它。
+    # 备案通过后换成自定义域名 https://img.gensoumono.cn （OSS 默认域名会给图片
+    # 强制加 Content-Disposition: attachment，导致「点开看原图」变成下载）。
+    OSS_PUBLIC_BASE = os.getenv('OSS_PUBLIC_BASE', '')

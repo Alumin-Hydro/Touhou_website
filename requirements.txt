@@ -1,7 +1,20 @@
+# 版本与本地 .venv 实测一致（Python 3.12）。全部钉死：线上是全新环境，
+# 不钉的话 pip 会各自解析出最新版，线上线下行为可能不一致。
 Flask==2.3.3
 Flask-SQLAlchemy==3.0.5
-Flask-Login==0.6.2
+Flask-Login==0.6.3
 Flask-WTF==1.3.0
 email-validator==2.0.0
 itsdangerous==2.1.2
 python-dotenv==1.0.0
+
+# Flask 2.3.3 只声明 Werkzeug>=2.3.7 而没有上限。本地实测跑的就是 3.1.8，
+# 钉住它，别让线上解析到别的大版本。
+Werkzeug==3.1.8
+SQLAlchemy==2.0.49
+
+# 图片直传阿里云 OSS：后端只签发预签名 URL 与复核，图片不经过本服务。
+oss2==2.19.1
+
+# 仅生产环境用（本地 python run.py 走 Flask 自带 server）。
+gunicorn==26.0.0

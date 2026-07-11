@@ -6,7 +6,7 @@
     <div class="profile-header">
         <div class="profile-avatar-wrap">
             {% if profile_user.avatar_url %}
-                <img src="{{ profile_user.avatar_url }}" alt="头像" class="profile-avatar">
+                <img src="{{ profile_user.avatar_url | thumb(160) }}" alt="头像" class="profile-avatar">
             {% else %}
                 <div class="avatar-placeholder">{{ profile_user.username[0] }}</div>
             {% endif %}

@@ -1,6 +1,4 @@
 # app/utils.py
-import os
-import uuid
 import smtplib
 import base64
 from email.mime.text import MIMEText
@@ -8,35 +6,7 @@ from email.header import Header
 from flask import current_app, url_for
 from itsdangerous import URLSafeTimedSerializer
 
-_POST_PHOTO_ALLOWED = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif'}
-
-def save_post_photo(file):
-    """将上传的帖子照片原图保存到 static/uploads/，返回 URL 路径，失败返回 None。"""
-    if not (file and file.filename and '.' in file.filename):
-        return None
-    ext = file.filename.rsplit('.', 1)[1].lower()
-    if ext not in _POST_PHOTO_ALLOWED:
-        return None
-    filename = f"post_{uuid.uuid4().hex}.{ext}"
-    folder = os.path.join(current_app.root_path, 'static', 'uploads')
-    os.makedirs(folder, exist_ok=True)
-    file.save(os.path.join(folder, filename))
-    return f"/static/uploads/{filename}"
-
-def delete_local_photo(url):
-    """若 url 指向本地上传文件则删除，外链或空值直接忽略。"""
-    if not url:
-        return
-    for prefix in ('/static/uploads/', '/static/avatars/'):
-        if url.startswith(prefix):
-            path = os.path.join(current_app.root_path,
-                                url.lstrip('/').replace('/', os.sep))
-            if os.path.exists(path):
-                try:
-                    os.remove(path)
-                except OSError:
-                    pass
-            return
+# 图片不再落本地磁盘：上传/删除都走 app/oss.py 的直传链路。
 
 def generate_verify_token(email, salt='email-verify'):
     serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])

@@ -22,7 +22,7 @@
         {% for u in matched_users %}
         <a href="{{ url_for('profile.view_profile', username=u.username) }}" class="user-search-card">
             {% if u.avatar_url %}
-                <img src="{{ u.avatar_url }}" alt="" class="user-search-avatar">
+                <img src="{{ u.avatar_url | thumb(64) }}" alt="" class="user-search-avatar">
             {% else %}
                 <div class="user-search-avatar-placeholder">{{ u.username[0] }}</div>
             {% endif %}

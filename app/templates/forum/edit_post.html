@@ -3,8 +3,10 @@
 {% block content %}
 <div class="card">
     <h2>编辑帖子</h2>
-    <form method="post" enctype="multipart/form-data">
+    {# 图片由浏览器直传 OSS，不随表单走，所以不需要 multipart #}
+    <form method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="photo_key" value="">
         <div class="form-group">
             <label>标题</label>
             <input type="text" name="title" value="{{ post.title }}" required>
@@ -25,7 +27,7 @@
             <label>观察照片</label>
             {% if post.photo_url %}
             <div style="margin-bottom:0.6rem;">
-                <img src="{{ post.photo_url }}" alt="当前照片" id="photo-preview"
+                <img src="{{ post.photo_url | thumb(800) }}" alt="当前照片" id="photo-preview"
                      style="max-width:100%; max-height:260px; border-radius:10px; border:2px solid var(--green-soft); display:block;">
                 <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">当前照片，上传新图片将替换。</small>
             </div>
@@ -35,7 +37,10 @@
                      style="max-width:100%; max-height:260px; border-radius:10px; border:2px solid var(--green-soft); display:block;">
             </div>
             {% endif %}
-            <input type="file" name="photo_file" id="photo-input"
+            <input type="file" id="photo-input"
+                   data-oss-kind="post"
+                   data-oss-preview="photo-preview"
+                   data-oss-preview-wrap="photo-preview-wrap"
                    accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,image/tiff"
                    style="border-radius:10px; padding:0.5rem; cursor:pointer;">
             <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">支持 JPG、PNG、GIF、WebP、BMP、TIFF，留空则保持原照片不变。</small>
@@ -47,18 +52,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.getElementById('photo-input').addEventListener('change', function(e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(ev) {
-        var preview = document.getElementById('photo-preview');
-        var wrap = document.getElementById('photo-preview-wrap');
-        preview.src = ev.target.result;
-        if (wrap) wrap.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
-});
-</script>
+<script src="{{ url_for('static', filename='js/oss-upload.js') }}"></script>
 {% endblock %}

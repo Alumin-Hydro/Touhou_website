@@ -50,8 +50,10 @@
     <p style="color:#7a6a5a; margin-bottom:1.5rem; font-size:0.9rem;">
         <a href="{{ url_for('forum.board', board_id=board.id) }}" style="color:var(--green-soft); text-decoration:none;">← 返回版块</a>
     </p>
-    <form method="post" enctype="multipart/form-data">
+    {# 图片由浏览器直传 OSS，不随表单走，所以不需要 multipart #}
+    <form method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="photo_key" value="">
         <div class="form-group">
             <label>帖子标题 <span style="color:var(--red-accent);">*</span></label>
             <input type="text" name="title" required placeholder="{{ title_ph }}">
@@ -65,7 +67,10 @@
                 <img id="photo-preview" src="" alt="预览"
                      style="max-width:100%; max-height:320px; border-radius:10px; border:2px solid var(--green-soft); display:block;">
             </div>
-            <input type="file" name="photo_file" id="photo-input"
+            <input type="file" id="photo-input"
+                   data-oss-kind="post"
+                   data-oss-preview="photo-preview"
+                   data-oss-preview-wrap="photo-preview-wrap"
                    accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,image/tiff"
                    style="border-radius:10px; padding:0.5rem; cursor:pointer;">
             <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">支持 JPG、PNG、GIF、WebP、BMP、TIFF，原图保存不压缩，最大 20MB。</small>
@@ -116,7 +121,10 @@
                     <img id="photo-preview" src="" alt="预览"
                          style="max-width:100%; max-height:260px; border-radius:10px; border:2px solid var(--green-soft); display:block;">
                 </div>
-                <input type="file" name="photo_file" id="photo-input"
+                <input type="file" id="photo-input"
+                       data-oss-kind="post"
+                       data-oss-preview="photo-preview"
+                       data-oss-preview-wrap="photo-preview-wrap"
                        accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,image/tiff"
                        style="border-radius:10px; padding:0.5rem; cursor:pointer;">
                 <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">支持 JPG、PNG、GIF、WebP、BMP、TIFF，原图保存不压缩，最大 20MB。</small>
@@ -133,18 +141,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.getElementById('photo-input').addEventListener('change', function(e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(ev) {
-        var preview = document.getElementById('photo-preview');
-        var wrap = document.getElementById('photo-preview-wrap');
-        preview.src = ev.target.result;
-        wrap.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
-});
-</script>
+<script src="{{ url_for('static', filename='js/oss-upload.js') }}"></script>
 {% endblock %}

@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from app import db
 from app.models import User, Post, Comment
-from app.utils import save_post_photo, delete_local_photo
+from app.oss import resolve_upload, delete_by_url
 from datetime import datetime, timedelta
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -138,9 +138,10 @@ def edit_post(post_id):
         post.content = request.form['content']
         post.bird_name = request.form.get('bird_name', '')
         post.location = request.form.get('location', '')
-        new_photo = save_post_photo(request.files.get('photo_file'))
+        # key 里编的是上传者（此处即管理员本人）的 id，不是原作者的
+        new_photo = resolve_upload(request.form.get('photo_key'), current_user.id)
         if new_photo:
-            delete_local_photo(post.photo_url)
+            delete_by_url(post.photo_url)
             post.photo_url = new_photo
         db.session.commit()
         flash('帖子已更新')
@@ -152,7 +153,7 @@ def edit_post(post_id):
 @admin_required
 def delete_post(post_id):
     post = Post.query.get_or_404(post_id)
-    delete_local_photo(post.photo_url)
+    delete_by_url(post.photo_url)
     db.session.delete(post)
     db.session.commit()
     flash('帖子已删除')

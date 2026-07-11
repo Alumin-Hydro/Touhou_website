@@ -9,13 +9,18 @@
     {% if post.bird_name %}
         <div class="bird-name">鸟种: {{ post.bird_name }}</div>
         <div>地点: {{ post.location or '未填写' }}</div>
-        {% if post.photo_url %}
-            <div style="margin:0.6rem 0;">
-                <img src="{{ post.photo_url }}" alt="观察照片"
-                     style="max-width:100%; max-height:480px; border-radius:10px; border:2px solid var(--green-soft); display:block; cursor:zoom-in;"
-                     onclick="this.style.maxHeight=this.style.maxHeight?'':'none'">
-            </div>
-        {% endif %}
+    {% endif %}
+    {# 图片独立于鸟种展示：「绘画与创作」的帖子往往只有图、不填鸟种，
+       之前这段嵌在 bird_name 的判断里，导致那类帖子的图根本不显示。 #}
+    {% if post.photo_url %}
+        <div style="margin:0.6rem 0;">
+            {# 页面上是 OSS 实时生成的缩略图；20MB 原图只在用户点击时才传 #}
+            <a href="{{ post.photo_url }}" target="_blank" rel="noopener">
+                <img src="{{ post.photo_url | thumb(1200) }}" alt="观察照片"
+                     style="max-width:100%; max-height:480px; border-radius:10px; border:2px solid var(--green-soft); display:block; cursor:zoom-in;">
+            </a>
+            <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">点击查看原图</small>
+        </div>
     {% endif %}
     <div class="post-meta" style="margin-bottom:1rem;">
         作者: <a href="{{ url_for('profile.view_profile', username=post.author.username) }}" style="color:var(--green-deep);">{{ post.author.username }}</a> · 发表于 {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}
