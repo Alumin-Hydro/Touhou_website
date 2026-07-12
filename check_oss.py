@@ -1,11 +1,12 @@
 """OSS 配置自检：填完 .env 后跑 `python check_oss.py`。
 
-把真实的一整条链路走一遍——签名 → 直传 → 复核 → 缩略图 → 删除——
+把真实的一整条链路走一遍——CORS 预检 → 签名 → 直传 → 复核 → 缩略图 → 删除——
 并顺带确认「客户端可以 PUT 任意字节」这个漏洞确实被 confirm_upload 堵住了。
 
 这些是本地单测覆盖不到的部分：sign_url 是纯签名运算不联网，而 head_object /
 get_object / delete_object 必须有真 bucket 才跑得起来。
 """
+import socket
 import struct
 import sys
 import zlib
@@ -18,6 +19,14 @@ from app import oss
 from app.oss import OssError
 
 TEST_USER_ID = 999_999  # 不属于任何真实用户，免得跟正常数据混在一起
+
+# 本地开发的来源。run.py 起的是 127.0.0.1:5000，可地址栏里多半敲的是 localhost，
+# 而浏览器是逐字匹配 Origin 的 —— 两个都得在 CORS 规则里，少一个就挂。
+DEV_ORIGINS = ('http://127.0.0.1:5000', 'http://localhost:5000')
+
+# 上线后的来源。现在还用不上（备案中），所以只提示、不算失败。但规则现在就该一起配好：
+# 等备案通过了才发现少配一个来源，那是几周以后的事，到时候最难查。
+PROD_ORIGINS = ('https://gensoumono.cn', 'https://www.gensoumono.cn')
 
 
 def make_png(w, h):
@@ -38,6 +47,7 @@ def make_png(w, h):
 
 
 failed = 0
+warned = 0
 
 
 def check(name, cond, detail=''):
@@ -47,6 +57,38 @@ def check(name, cond, detail=''):
     else:
         failed += 1
         print(f'  ✗ {name}  {detail}')
+
+
+def warn(name, cond, detail=''):
+    """该配、但现在还用不上的东西：提示，不算失败。"""
+    global warned
+    if cond:
+        print(f'  ✓ {name}')
+    else:
+        warned += 1
+        print(f'  ! {name}  {detail}')
+
+
+def preflight(origin, url):
+    """把浏览器 PUT 之前必发的那个 OPTIONS 原样发一遍，返回 (是否放行, 详情)。
+
+    oss-upload.js 在 PUT 时设了 Content-Type: image/xxx，而这个值不属于 CORS 安全列表
+    （安全列表只有 x-www-form-urlencoded / form-data / text/plain），所以浏览器必定
+    先发一个预检。requests 自己不*执行* CORS 检查，但 OSS 会*回答*预检 —— 读它的响应头
+    就能验出跨域规则配没配对。匿名请求，不需要签名，对象也不必存在。
+    """
+    r = requests.options(url, timeout=15, headers={
+        'Origin': origin,
+        'Access-Control-Request-Method': 'PUT',
+        'Access-Control-Request-Headers': 'content-type',
+    })
+    allow_origin = r.headers.get('Access-Control-Allow-Origin', '')
+    allow_methods = r.headers.get('Access-Control-Allow-Methods', '')
+    ok = (r.status_code == 200
+          and allow_origin in (origin, '*')
+          and 'PUT' in allow_methods.upper())
+    return ok, (f'（HTTP {r.status_code}；Allow-Origin={allow_origin or "无"}；'
+                f'Allow-Methods={allow_methods or "无"}）')
 
 
 with app.app_context():
@@ -61,13 +103,44 @@ with app.app_context():
         sys.exit(1)
 
     print(f'bucket   : {cfg["OSS_BUCKET"]}')
-    print(f'endpoint : {cfg["OSS_ENDPOINT"]}')
+    print(f'endpoint : {oss._endpoint()}')
     print(f'公开前缀 : {cfg["OSS_PUBLIC_BASE"]}')
+
+    # 内网 endpoint 只在阿里云 VPC 内部通得了。要是在本地填了它，confirm_upload
+    # （走 internal=True）会一路连到超时才失败，报出来的样子像权限问题，其实跟权限
+    # 毫无关系。先探一下，早点把话说清楚，省得对着 traceback 查半天。
+    internal = oss._endpoint(internal=True)
+    if internal != oss._endpoint():
+        host = internal.split('://', 1)[1]
+        try:
+            socket.create_connection((host, 443), timeout=5).close()
+        except OSError:
+            print(f'\n✗ 连不上内网 endpoint：{host}')
+            print('  内网 endpoint 只在阿里云 VPC 内部解析得了，本地连不上。')
+            print('  把 .env 的 OSS_ENDPOINT_INTERNAL 留空（会自动回落到公网 endpoint），')
+            print('  只有部署到 ECS 上时才填它。')
+            sys.exit(1)
 
     png = make_png(1000, 800)
     print(f'测试图   : 1000x800 PNG, {len(png) / 1024:.0f} KB\n')
 
-    print('== 1. 签名 ==')
+    print('== 0. 配置与 CORS 预检（浏览器直传的前置条件）==')
+    # 图片 URL 会带着这个前缀原样入库。写成 http 的话，等站点上了 TLS，每张历史图片
+    # 都是 https 页面里的 http 子资源 —— 浏览器直接拦成混合内容。
+    check('OSS_PUBLIC_BASE 是 https', cfg['OSS_PUBLIC_BASE'].startswith('https://'),
+          f'\n      当前是 {cfg["OSS_PUBLIC_BASE"]}；图片 URL 原样入库，http 会在上线后被当混合内容拦掉')
+
+    scheme, host = oss._endpoint().split('://', 1)
+    probe_url = f'{scheme}://{cfg["OSS_BUCKET"]}.{host}/cors-probe'
+    cors_hint = '\n      bucket → 数据安全 → 跨域设置：加上这个来源，Methods 勾 PUT/GET/HEAD'
+    for origin in DEV_ORIGINS:
+        ok, detail = preflight(origin, probe_url)
+        check(f'{origin} 允许直传', ok, detail + cors_hint)
+    for origin in PROD_ORIGINS:
+        ok, detail = preflight(origin, probe_url)
+        warn(f'{origin} 允许直传（上线才用得上）', ok, detail + cors_hint)
+
+    print('\n== 1. 签名 ==')
     try:
         put_url, key, content_type = oss.sign_upload(
             'post', 'selfcheck.png', len(png), TEST_USER_ID)
@@ -77,11 +150,16 @@ with app.app_context():
         check('签发预签名 PUT URL', False, str(e))
         sys.exit(1)
 
+    # 上了 TLS 之后，https 页面里发往 http 的 PUT 会被浏览器当混合内容拦掉；而本地页面
+    # 自己就是 http，这事测不出来。在这儿钉一颗钉子，防止 _endpoint() 的补全逻辑被改坏。
+    check('签出的是 https URL', put_url.startswith('https://'),
+          f'\n      得到的是 {put_url.split("://", 1)[0]}://…，上线后会被浏览器当混合内容拦掉')
+
     print('\n== 2. 直传（模拟浏览器，不经过后端）==')
     r = requests.put(put_url, data=png, headers={'Content-Type': content_type}, timeout=60)
     check(f'PUT 到 OSS（HTTP {r.status_code}）', r.status_code == 200,
-          '\n      403 多半是 AccessKey 或权限策略不对；'
-          '\n      浏览器里报 CORS 错则是跨域规则没配（curl/requests 不受 CORS 约束，这里看不出来）')
+          '\n      403 SignatureDoesNotMatch：AccessKey 填错，或 endpoint 地域与 bucket 不符'
+          '\n      403 AccessDenied：RAM 策略缺 oss:PutObject，或策略里的 bucket 名写错')
     if r.status_code != 200:
         print('      ' + r.text[:300])
         sys.exit(1)
@@ -140,5 +218,8 @@ print()
 if failed:
     print(f'{failed} 项没过 —— 照着上面的提示查配置。')
     sys.exit(1)
+if warned:
+    print(f'{warned} 项待办：上线前配好，不影响现在本地跑。\n')
 print('全部通过。OSS 链路可用，可以在浏览器里发帖传图了。')
-print('注意：CORS 只有浏览器会校验，这个脚本测不出来 —— 务必再用真浏览器发一帖。')
+print('注意：预检只验了跨域规则本身配没配对，CORS 的实际执行、以及 JS / 进度条 /')
+print('      表单流程，仍然只有真浏览器说了算 —— 务必再手工发一帖。')

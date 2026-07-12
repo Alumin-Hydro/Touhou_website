@@ -40,13 +40,25 @@ _KEY_RE = re.compile(r'^(post|avatar)/(\d+)/[0-9a-f]{32}\.[a-z]+$')
 _SIGN_EXPIRES = 300  # 预签名 URL 有效期（秒）
 
 
+def _endpoint(internal=False):
+    """取 endpoint，并补全协议头。
+
+    oss2 对不带协议头的 endpoint 一律补成 http://，于是签出来的预签名 URL 也是 http 的。
+    本地开发时页面自己就是 http，测不出任何问题；等站点上了 TLS，浏览器会把 https 页面
+    里发往 http 的这个 PUT 当作混合内容直接拦掉 —— 一个只在生产暴露的故障。
+    所以这里统一补 https://，不指望 .env 每次都写对。
+    """
+    cfg = current_app.config
+    ep = (cfg['OSS_ENDPOINT_INTERNAL'] if internal else cfg['OSS_ENDPOINT']) or ''
+    return ep if ep.startswith(('http://', 'https://')) else f'https://{ep}'
+
+
 def _bucket(internal=False):
     cfg = current_app.config
     if not cfg.get('OSS_BUCKET'):
         raise OssError('图片服务未配置')
-    endpoint = cfg['OSS_ENDPOINT_INTERNAL'] if internal else cfg['OSS_ENDPOINT']
     auth = oss2.Auth(cfg['OSS_ACCESS_KEY_ID'], cfg['OSS_ACCESS_KEY_SECRET'])
-    return oss2.Bucket(auth, endpoint, cfg['OSS_BUCKET'])
+    return oss2.Bucket(auth, _endpoint(internal), cfg['OSS_BUCKET'])
 
 
 def public_url(key):

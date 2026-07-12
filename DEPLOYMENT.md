@@ -79,12 +79,20 @@ Bucket → 数据安全 → 跨域设置：
 OSS_ACCESS_KEY_ID=<RAM 子账号的 AccessKey ID>
 OSS_ACCESS_KEY_SECRET=<RAM 子账号的 AccessKey Secret>
 OSS_BUCKET=<bucket 名>
-OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com                # 公网，按实际地域改
-OSS_ENDPOINT_INTERNAL=oss-cn-hangzhou-internal.aliyuncs.com  # 只在 ECS 上填；本地留空
+OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com                      # 公网，按实际地域改
+OSS_ENDPOINT_INTERNAL=                                         # 本地留空！见下
 OSS_PUBLIC_BASE=https://<bucket>.oss-cn-hangzhou.aliyuncs.com  # 备案后换成 https://img.gensoumono.cn
 ```
 
-填完 `python run.py`，本地就能完整跑通直传（不需要备案）。
+> **`OSS_ENDPOINT_INTERNAL` 在本地必须留空**，只有部署到 ECS 上才填成
+> `oss-cn-hangzhou-internal.aliyuncs.com`（按实际地域改）。内网 endpoint 只在阿里云 VPC
+> 内部解析得了；本地填了它，`confirm_upload()`（走 `_bucket(internal=True)`）会一路连到
+> 超时才失败，报出来的样子像权限问题，其实跟权限毫无关系。留空时 `settings.py` 会自动
+> 回落到公网 endpoint。`check_oss.py` 开头会先探一次，踩了会直接告诉你。
+
+填完先跑 **`python check_oss.py`** 一键验真实链路（CORS 预检 → 签名 → 直传 → 复核 →
+缩略图 → 删除），全绿之后再 `python run.py` 用浏览器走一遍第 7 节的清单。
+两步都不需要备案。
 
 > **备案前的临时现象**：OSS 默认域名会给图片强制加 `Content-Disposition: attachment`
 > （2019-09 后新建的 bucket 都如此）。浏览器只在**导航请求**时看这个头，`<img>` 子资源
@@ -251,6 +259,12 @@ Nginx 反代到 `127.0.0.1:8000`；`app/static/`（css、js、backgrounds）由 
   **465 + SSL**，不受影响 —— **不要改回 25**。
 - **`app.run(debug=True)`** 只在本地 `python run.py` 时生效。务必确认生产走 gunicorn，
   绝不能让 debug 模式暴露到公网（Werkzeug 调试器可执行任意代码）。
+- **endpoint 必须是 `https://`**，否则上线后传图会静默失效。oss2 对不带协议头的 endpoint
+  一律补成 `http://`，签出来的预签名 PUT URL 也就是 http 的 —— 本地开发页面自己是 http，
+  http→http 不算混合内容，**本地怎么测都是绿的**；等站点上了 TLS，浏览器会把 https 页面里
+  发往 http 的这个 PUT 当**混合内容**直接拦掉。已在 `app/oss.py` 的 `_endpoint()` 里统一补
+  `https://` 钉死，`check_oss.py` 有回归防护。`OSS_PUBLIC_BASE` 同理必须是 `https://`
+  —— 它会带着前缀原样入库，写错了每张历史图片都得改。
 - **备案期间域名不可用**，用 `IP:8000` 调试，别用 80/443。
 - **`requirements.txt` 现已全部钉死版本**。注意 Flask 2.3.3 只声明 `Werkzeug>=2.3.7`
   而无上限 —— 本地实测跑的是 Werkzeug 3.1.8，已钉住；别让线上解析到别的大版本。
