@@ -155,6 +155,27 @@ with app.app_context():
     check('签出的是 https URL', put_url.startswith('https://'),
           f'\n      得到的是 {put_url.split("://", 1)[0]}://…，上线后会被浏览器当混合内容拦掉')
 
+    # 超限时必须把限额一起带回去：oss-upload.js 凭 max_bytes 弹「压缩后上传」的确认框。
+    # 这个字段没了，用户随手一张 8MB 手机原图就只剩一句干巴巴的报错。
+    # 限额只在 _MAX_BYTES 定义这一处，前端不硬编码第二份跟着漂移。
+    try:
+        oss.sign_upload('avatar', 'huge.jpg', 6 * 1024 * 1024, TEST_USER_ID)
+        check('头像超限时拒绝签名', False, '6MB 的头像竟然签出来了')
+    except OssError as e:
+        check(f'头像超限时拒绝签名（"{e}"）', True)
+        check('并带回 max_bytes 供前端提出压缩',
+              e.max_bytes == 5 * 1024 * 1024,
+              f'\n      拿到的是 {e.max_bytes!r}，前端就弹不出压缩确认框了')
+
+    # AVIF 的字节，后端是**故意不认**的 —— 魔术字节白名单是道安全阀（挡住把 HTML/SVG
+    # 伪装成图片存进去），不能为了一个格式就放开。归一化是浏览器的活：oss-upload.js 在
+    # 选图时嗅格式，AVIF/HEIC 用 canvas 转成 JPEG 再传。
+    # 钉住这个前提：谁要是哪天「顺手」把 AVIF 加进白名单，存下来的对象会是
+    # Content-Type: image/jpeg 而字节是 AVIF —— OSS 图片处理不认，缩略图当场裂。
+    check('AVIF 字节仍被后端拒收（转码是浏览器的责任）',
+          not oss._looks_like_image(b'\x00\x00\x00\x1cftypavif'),
+          '\n      白名单被放开了？那 OSS 的 x-oss-process 会处理不了，缩略图要裂')
+
     print('\n== 2. 直传（模拟浏览器，不经过后端）==')
     r = requests.put(put_url, data=png, headers={'Content-Type': content_type}, timeout=60)
     check(f'PUT 到 OSS（HTTP {r.status_code}）', r.status_code == 200,

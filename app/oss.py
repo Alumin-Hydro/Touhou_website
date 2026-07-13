@@ -19,6 +19,12 @@ oss_bp = Blueprint('oss', __name__, url_prefix='/oss')
 class OssError(Exception):
     """校验失败。消息面向用户，可直接 flash 或返回给前端。"""
 
+    def __init__(self, message, max_bytes=None):
+        super().__init__(message)
+        # 只有「超限」这一种错带上限值。前端据此弹窗问用户要不要压缩后再传 ——
+        # 限额只在 _MAX_BYTES 定义这一处，不让前端再硬编码一份跟着漂移。
+        self.max_bytes = max_bytes
+
 
 # 扩展名白名单即唯一事实来源：Content-Type 由它推导，不采信浏览器给的 file.type。
 # OSS 的预签名把 Content-Type 算进签名，前后端对不上就是 403 —— 由后端单方面决定
@@ -81,7 +87,7 @@ def sign_upload(kind, filename, size, user_id):
 
     limit = _MAX_BYTES[kind]
     if not isinstance(size, int) or size <= 0 or size > limit:
-        raise OssError(f'图片不能超过 {limit // 1024 // 1024}MB')
+        raise OssError(f'图片不能超过 {limit // 1024 // 1024}MB', max_bytes=limit)
 
     content_type = _EXT_MIME[ext]
     key = f'{kind}/{user_id}/{uuid.uuid4().hex}.{ext}'
@@ -203,6 +209,9 @@ def sign():
             kind, data.get('filename'), data.get('size'), current_user.id
         )
     except OssError as e:
-        return jsonify(error=str(e)), 400
+        payload = {'error': str(e)}
+        if e.max_bytes:
+            payload['max_bytes'] = e.max_bytes  # 超限：前端凭它提出「压缩后上传」
+        return jsonify(payload), 400
 
     return jsonify(put_url=put_url, key=key, content_type=content_type)

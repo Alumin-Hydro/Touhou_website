@@ -41,9 +41,9 @@
                    data-oss-kind="post"
                    data-oss-preview="photo-preview"
                    data-oss-preview-wrap="photo-preview-wrap"
-                   accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,image/tiff"
+                   accept="image/*"
                    style="border-radius:10px; padding:0.5rem; cursor:pointer;">
-            <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">支持 JPG、PNG、GIF、WebP、BMP、TIFF，留空则保持原照片不变。</small>
+            <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">支持 JPG、PNG、GIF、WebP、BMP、TIFF；AVIF / HEIC 会自动转成 JPG。留空则保持原照片不变。</small>
         </div>
         <button type="submit" class="btn">保存修改</button>
         <a href="{{ url_for('admin.posts') }}" class="btn" style="background:#7a6a5a;">返回帖子管理</a>

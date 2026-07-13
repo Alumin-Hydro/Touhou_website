@@ -104,6 +104,7 @@ OSS_PUBLIC_BASE=https://<bucket>.oss-cn-hangzhou.aliyuncs.com  # 备案后换成
 ## 2. 图片架构（已实现）
 
 ```
+浏览器 ──⓪ 选图：嗅真实格式，必要时 canvas 转码 / 压缩（见下）
 浏览器 ──① POST /oss/sign ─────> Flask（校验后签发预签名 PUT URL，5 分钟有效）
 浏览器 ──② PUT 原图 ───────────> OSS         ← 不经 ECS，不占带宽不占磁盘
 浏览器 ──③ 提交表单（只带 key）─> Flask（复核后入库）
@@ -133,6 +134,30 @@ OSS_PUBLIC_BASE=https://<bucket>.oss-cn-hangzhou.aliyuncs.com  # 备案后换成
 3. **入库前必须回查对象本身**（`head_object` 查大小与类型 + 读前 12 字节验魔术字节）。
    预签名 URL 一旦签出，客户端实际 PUT 了什么字节后端是看不见的 —— 签名只约束了
    key 和 Content-Type，约束不了内容。
+
+### 第 ⓪ 步：浏览器端归一化（别把它删掉）
+
+`oss-upload.js` 在**选图那一刻**就读文件的前 12 字节嗅出真实格式，然后：
+
+| 情况 | 做法 |
+|---|---|
+| JPG / PNG / GIF / WebP / BMP / TIFF | **原样上传，不重编码** —— 重编码会掉画质，还会丢 PNG 的透明和 GIF 的动画 |
+| AVIF / HEIC | `createImageBitmap` + canvas **转成 JPEG** 再传 |
+| 超过 `_MAX_BYTES` | **弹窗问用户**要不要压缩后上传；答应了就降质量 / 降分辨率压到限额内 |
+| 浏览器都解不开 | 当场报错，**不浪费一次完整上传** |
+
+上传用的文件名扩展名一律按**嗅出来的格式**取，不采信用户的文件名 —— 后端是按扩展名推
+Content-Type 的，这样「扩展名 / Content-Type / 真实字节」三者才始终一致。
+
+**为什么非有这一步不可**：B 站 / Twitter / 微博的 CDN 现在发 **AVIF**。用户右键「图片
+另存为」拿到的文件叫 `xxx.jpg`，Windows 还按扩展名把 `file.type` 报成 `image/jpeg` ——
+**可字节是 AVIF**。没有这一步的话：签名按扩展名放行 → 整张图传完 → 后端复核魔术字节不
+认识 → **删掉对象并报「文件内容不是有效的图片」**。用户白传一场，且完全看不懂
+（实测踩过，见第 6 节）。
+
+后端的魔术字节白名单**故意不收 AVIF**，别去放开它：那是道安全阀（挡住把 HTML/SVG 伪装
+成图片存进去），而且真放开了，存下来的对象会是 `Content-Type: image/jpeg` 配 AVIF 字节
+—— OSS 图片处理不认，缩略图当场就裂。`check_oss.py` 对这两条都有回归防护。
 
 ### 缩略图：用 OSS 图片处理，不要跑 Pillow
 
@@ -265,6 +290,13 @@ Nginx 反代到 `127.0.0.1:8000`；`app/static/`（css、js、backgrounds）由 
   发往 http 的这个 PUT 当**混合内容**直接拦掉。已在 `app/oss.py` 的 `_endpoint()` 里统一补
   `https://` 钉死，`check_oss.py` 有回归防护。`OSS_PUBLIC_BASE` 同理必须是 `https://`
   —— 它会带着前缀原样入库，写错了每张历史图片都得改。
+- **文件扩展名会骗人：`.jpg` 里装的可能是 AVIF。** B 站 / Twitter / 微博的 CDN 发的是
+  AVIF，右键「另存为」拿到的文件叫 `xxx.jpg`，Windows 连 `file.type` 都按扩展名报成
+  `image/jpeg`。**只有魔术字节不会骗人**（AVIF 是 `\x00\x00\x00\x1cftypavif`）。
+  2026-07-13 实测踩过：头像怎么传都存不上，`/oss/sign` 200、`PUT` 200、表单 302，
+  可 `avatar_url` 就是空的 —— 原来是 `confirm_upload` 复核字节时不认识，**删掉对象**后
+  只 flash 了一句「文件内容不是有效的图片」。**整张图已经传完了才被拒。**
+  现在由 `oss-upload.js` 在选图时就嗅格式并转码（见第 2 节第 ⓪ 步）。
 - **备案期间域名不可用**，用 `IP:8000` 调试，别用 80/443。
 - **`requirements.txt` 现已全部钉死版本**。注意 Flask 2.3.3 只声明 `Werkzeug>=2.3.7`
   而无上限 —— 本地实测跑的是 Werkzeug 3.1.8，已钉住；别让线上解析到别的大版本。
@@ -283,6 +315,12 @@ Nginx 反代到 `127.0.0.1:8000`；`app/static/`（css、js、backgrounds）由 
 - [ ] 头像上传、**管理员编辑帖子**（`/admin/posts/edit/<id>`）各验一遍
 - [ ] 安全：表单里把 `photo_key` 改成别人 user_id 的 key → 必须被拒（帖子照发，但不带图）
 - [ ] 安全：拿签出的 URL 用 curl PUT 一个非图片文件 → 提交时应被复核拒绝并删除该对象
+- [ ] **AVIF**：拿一张 B 站存的图（名字是 `.jpg`、字节是 AVIF）传头像 → 应提示「正在转换
+      为 JPEG」并**成功存上**；OSS 上落的是 `.jpg`，`head_object` 的 Content-Type 是
+      `image/jpeg`，帖子页缩略图正常
+- [ ] **超限压缩**：传一张超过限额的图（头像 >5MB / 帖子 >20MB）→ 应**弹窗**问要不要压缩
+      → 选「取消」则不上传、`photo_key` 保持空；选「确定」则压到限额内并成功上传
+- [ ] **EXIF 旋转**：用手机横拍的照片走一遍压缩路径 → 存下来的图**不能是躺倒的**
 
 ### 上线后
 
