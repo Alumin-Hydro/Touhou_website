@@ -9,6 +9,14 @@ load_dotenv(dotenv_path=dotenv_path)
 
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-change-in-production')
+
+    # Flask-WTF 默认让 CSRF token 一小时后过期。观鸟记录常常是写一两个小时的长帖，
+    # 页面就那么一直开着 —— 到点一提交就是 400，正文全丢（2026-07-13 实测撞到过）。
+    # 设成 None 后 token 与 session 同寿：本站没开 remember-me，session cookie 就是
+    # 浏览器会话 cookie，token 活不过登录本身。token 仍由 SECRET_KEY 签名、并与
+    # session['csrf_token'] 绑定，去掉的只是那个多余的时限，不放宽任何安全边界。
+    WTF_CSRF_TIME_LIMIT = None
+
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///forum.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

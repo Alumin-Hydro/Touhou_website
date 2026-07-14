@@ -202,7 +202,8 @@ with app.app_context():
 
     thumb_url = oss.thumb(url, 800)
     r = requests.get(thumb_url, timeout=30)
-    check(f'OSS 实时缩略图（HTTP {r.status_code}）', r.status_code == 200)
+    check(f'OSS 实时缩略图（HTTP {r.status_code}）', r.status_code == 200,
+          '\n      400 说明 OSS 不认这串 x-oss-process 参数（比如 auto-orient 写错了位置或值）')
     if r.status_code == 200:
         check('缩略图确实比原图小', len(r.content) < len(png),
               f'原图 {len(png)}B，缩略图 {len(r.content)}B')
@@ -234,6 +235,35 @@ with app.app_context():
         check('delete_by_url 删掉了对象', False, '对象还在')
     except oss2.exceptions.NotFound:
         check('delete_by_url 删掉了对象', True)
+
+    print('\n== 7. 换域名之后，老图不能失效（备案通过那天就会踩）==')
+    # 那天要把 OSS_PUBLIC_BASE 从 bucket 默认域名换成 https://img.gensoumono.cn，
+    # 而已入库的 URL 不会跟着变。只认当前前缀的话，此前上传的每一张图会同时丢掉缩略图
+    # 和删除能力 —— 两条都不报错。这个故障浏览器里测不出来（要等到真换域名那天），
+    # 只有在这儿把那天预演一遍才钉得住。
+    put_url3, key3, ct3 = oss.sign_upload('post', 'legacy.png', len(png), TEST_USER_ID)
+    requests.put(put_url3, data=png, headers={'Content-Type': ct3}, timeout=60)
+    legacy_url = f'{scheme}://{cfg["OSS_BUCKET"]}.{host}/{key3}'  # 老图：带默认域名前缀入的库
+
+    real_base = cfg['OSS_PUBLIC_BASE']
+    cfg['OSS_PUBLIC_BASE'] = 'https://img.gensoumono.cn'  # 假装备案过了、域名已经换掉
+    try:
+        t = oss.thumb(legacy_url, 800)
+        check('换域名后，老图仍然走缩略图', 'x-oss-process' in t,
+              '\n      老图不再匹配新前缀 —— 帖子列表会直接加载 20MB 原图，'
+              '导航栏会拿 5MB 头像去填 22×22 的框')
+        check('缩略图带 auto-orient（原生上传的手机照片才不会躺倒）', 'auto-orient' in t)
+        oss.delete_by_url(legacy_url)
+    finally:
+        cfg['OSS_PUBLIC_BASE'] = real_base
+
+    try:
+        bucket.head_object(key3)
+        check('换域名后，老图仍然删得掉', False,
+              '\n      delete_by_url 静默跳过了它 —— 删帖不再删 OSS 对象，'
+              '垃圾永久留在 bucket 里付存储费')
+    except oss2.exceptions.NotFound:
+        check('换域名后，老图仍然删得掉', True)
 
 print()
 if failed:

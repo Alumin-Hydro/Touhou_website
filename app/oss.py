@@ -71,6 +71,47 @@ def public_url(key):
     return f"{current_app.config['OSS_PUBLIC_BASE'].rstrip('/')}/{key}"
 
 
+def _known_bases():
+    """本站图片用过的所有 URL 前缀：当前的 OSS_PUBLIC_BASE，以及 bucket 默认域名。
+
+    OSS_PUBLIC_BASE 是会变的 —— 备案通过后要从 bucket 默认域名换成 img.gensoumono.cn。
+    可**已经入库的 URL 不会跟着变**：它们带着旧前缀原样躺在 photo_url / avatar_url 里。
+    只认「当前」那一个前缀的话，换域名那天，此前上传的每一张图会同时失去两样东西 ——
+    缩略图（thumb() 不再加 x-oss-process，帖子列表直接拉 20MB 原图，导航栏拿 5MB 头像
+    去填 22×22 的框）和删除能力（delete_by_url() 静默跳过，删帖不再删 OSS 对象，垃圾
+    永久留在 bucket 里付存储费）。两条都不抛异常，几周后才会有人发现。
+
+    所以两个前缀都认。换域名于是不再是断层，只是「新图从此走新域名」。
+    """
+    cfg = current_app.config
+    bases = []
+
+    public = (cfg.get('OSS_PUBLIC_BASE') or '').rstrip('/')
+    if public:
+        bases.append(public)
+
+    if cfg.get('OSS_BUCKET') and cfg.get('OSS_ENDPOINT'):
+        host = _endpoint().split('://', 1)[1].rstrip('/')  # 公网 endpoint，不是内网那个
+        default = f"https://{cfg['OSS_BUCKET']}.{host}"
+        if default not in bases:
+            bases.append(default)
+
+    return bases
+
+
+def _key_from_url(url):
+    """URL → OSS key。不是本站 OSS 上的图片就返回 None。
+
+    外链、历史遗留的 /static/uploads/…、以及前缀对得上但路径不像 key 的，一律不认
+    （_KEY_RE 是最后一道闸）。
+    """
+    for base in _known_bases():
+        if url.startswith(base + '/'):
+            key = url[len(base) + 1:].split('?', 1)[0]
+            return key if _KEY_RE.match(key) else None
+    return None
+
+
 def sign_upload(kind, filename, size, user_id):
     """签发预签名 PUT URL。返回 (put_url, key, content_type)。
 
@@ -167,14 +208,8 @@ def delete_by_url(url):
 
     非本站 OSS 的 URL（比如历史遗留的 /static/uploads/…，或外链）直接忽略。
     """
-    if not url:
-        return
-    base = current_app.config.get('OSS_PUBLIC_BASE', '').rstrip('/') + '/'
-    if base == '/' or not url.startswith(base):
-        return
-
-    key = url[len(base):].split('?', 1)[0]
-    if not _KEY_RE.match(key):
+    key = _key_from_url(url or '')
+    if not key:
         return
     try:
         _bucket(internal=True).delete_object(key)
@@ -187,11 +222,16 @@ def thumb(url, width=800):
 
     OSS 自带图片处理，加个 URL 参数就实时生成并缓存 —— 不要在服务端跑 Pillow：
     一张 6000×4000 的 JPEG 解码成 RGB 位图就是约 72MB，2G 内存必 OOM。
+
+    auto-orient 必须排在 resize 前面。手机横拍的照片把方向记在 EXIF 里，而原生上传的图
+    （≤20MB 的 JPEG 由 oss-upload.js 原样直传，不重编码）EXIF 是完好的 —— 浏览器看原图
+    会自己扶正，可**缩略图是 OSS 现生成的**：不显式要求扶正就可能吐一张躺倒的图，而输出
+    里 EXIF 已被剥掉，前端再也救不回来。于是原图正着、缩略图躺着。
+    （放到 resize 后面则缩放会按未旋转的宽高算，w/h 对调。）
     """
-    base = current_app.config.get('OSS_PUBLIC_BASE', '')
-    if not url or not base or not url.startswith(base):
-        return url  # 历史遗留的本地图片、或未配置 OSS，原样返回
-    return f'{url}?x-oss-process=image/resize,w_{width},m_lfit/quality,q_85'
+    if not url or not _key_from_url(url):
+        return url  # 历史遗留的本地图片、外链、或未配置 OSS，原样返回
+    return f'{url}?x-oss-process=image/auto-orient,1/resize,w_{width},m_lfit/quality,q_85'
 
 
 @oss_bp.route('/sign', methods=['POST'])

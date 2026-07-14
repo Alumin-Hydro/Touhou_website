@@ -1,7 +1,7 @@
 # 部署手册：幻想博物志（阿里云 ECS + OSS）
 
 > 域名：`gensoumono.cn`　状态：**ICP 备案已提交，等管局审核**（1–20 工作日）
-> 最后更新：2026-07-12
+> 最后更新：2026-07-14
 
 ---
 
@@ -19,9 +19,16 @@
 ### 上线前还剩什么
 
 - [x] ~~轮换 `SECRET_KEY`~~ —— 已于 2026-07-12 换成新的 32 字节随机值
+- [x] ~~在阿里云控制台开 OSS~~ —— bucket `gensoumono-img`（`oss-cn-shanghai`，公共读）
+      已建好并填进 `.env`，`python check_oss.py` 对着真实 bucket 全绿
+- [ ] **bucket 跨域规则补上生产来源**（控制台的活，代码里做不了）—— 现在只配了两个本地
+      来源，`https://gensoumono.cn` 与 `https://www.gensoumono.cn` 的预检**当前返 403**。
+      备案通过、域名上线那天传图会直接挂，而那已是几周之后，届时极难想到症结在这儿。
+      bucket → 数据安全 → 跨域设置，Methods 勾 PUT/GET/HEAD。
+      `check_oss.py` 第 0 步会一直用 `!` 提醒（算警告，不算失败）。
 - [ ] **轮换 126 邮箱 SMTP 授权码** —— 曾进入已推送的 git 历史，须视为已泄露。
       去 126 邮箱后台重置，然后更新 `.env` 的 `MAIL_PASSWORD`。
-- [ ] **在阿里云控制台开 OSS**（见第 1 节）—— 代码已就绪，只差配置
+- [ ] **EXIF 旋转实测** —— 第 7 节本地清单上唯一还没走过的一项，要一张手机横拍的照片
 - [ ] 备案通过后：绑自定义域名、签证书、页脚放备案号、30 天内做公安备案
 
 ### 备案卡什么、不卡什么
@@ -165,6 +172,13 @@ Content-Type 的，这样「扩展名 / Content-Type / 真实字节」三者才�
 处理过程还有多份副本）。模板里用 `{{ post.photo_url | thumb(1200) }}`，
 OSS 实时生成并缓存；20MB 原图只在用户点击「查看原图」时才传。
 
+`thumb()` 拼的参数串是 `image/auto-orient,1/resize,...`，**`auto-orient` 必须排在
+`resize` 前面**（放后面则缩放按未旋转的宽高算，宽高对调）。它防的是 EXIF 旋转的**第二条
+路**：原生上传的图（≤20MB 的 JPEG 由 `oss-upload.js` 原样直传、不重编码）EXIF 是完好的
+—— 浏览器看原图会自己扶正，可**缩略图是 OSS 现生成的**，不显式要求扶正就可能吐一张躺倒
+的图，而输出里 EXIF 已被剥掉，前端再也救不回来。于是**原图正着、缩略图躺着**。
+（第一条路是转码 / 压缩，由 `oss-upload.js` 的 `imageOrientation:'from-image'` 负责。）
+
 ---
 
 ## 3. 数据库
@@ -267,9 +281,21 @@ Nginx 反代到 `127.0.0.1:8000`；`app/static/`（css、js、backgrounds）由 
 4. **页脚放备案号**并链到 `https://beian.miit.gov.cn` —— 硬性合规要求，不放会被巡查
 5. **公安联网备案**：ICP 备案通过后 **30 日内**在 www.beian.gov.cn 完成
 
-> 已入库的老图片 URL 是 OSS 默认域名。换 `OSS_PUBLIC_BASE` 后新图走新域名，
-> 老图仍指向旧 URL（依然可访问）。数量少，不值得写迁移脚本；真要统一，
-> 直接 `UPDATE post SET photo_url = REPLACE(photo_url, 旧前缀, 新前缀)`。
+> **已入库的老图片 URL 带的是 OSS 默认域名，换 `OSS_PUBLIC_BASE` 后它们不会跟着变。**
+> `app/oss.py` 的 `_known_bases()` 因此**同时认两个前缀**（当前的 `OSS_PUBLIC_BASE`
+> 和 bucket 默认域名）—— 老图照样有缩略图、照样删得掉，换域名不是断层。
+> **别把这个判断改回单前缀 `startswith`**：那样一改，换域名当天此前上传的每一张图会
+> 同时失去缩略图（帖子列表直接拉 20MB 原图、导航栏拿 5MB 头像去填 22×22 的框）和删除
+> 能力（删帖不再删 OSS 对象），而且**两条都不报错**。`check_oss.py` 第 7 节把这一天
+> 预演了一遍，是唯一钉得住它的地方。
+>
+> 迁移那两条 `UPDATE` 于是降级成**可选的收尾**（不跑也不会坏）。跑它的收益是让老图也
+> 走自定义域名，从而「点开看原图」不再变成下载：
+>
+> ```sql
+> UPDATE post SET photo_url  = REPLACE(photo_url,  '旧前缀', '新前缀');
+> UPDATE "user" SET avatar_url = REPLACE(avatar_url, '旧前缀', '新前缀');  -- 头像同理，别漏
+> ```
 
 > CDN 先不上。初期流量小，OSS 外网流出 ~0.5 元/GB 与 CDN ~0.2 元/GB 差不了几毛钱，
 > 少一层复杂度。以后要加，在 `img.gensoumono.cn` 前面套一层即可，代码零改动。
@@ -284,6 +310,15 @@ Nginx 反代到 `127.0.0.1:8000`；`app/static/`（css、js、backgrounds）由 
   **465 + SSL**，不受影响 —— **不要改回 25**。
 - **`app.run(debug=True)`** 只在本地 `python run.py` 时生效。务必确认生产走 gunicorn，
   绝不能让 debug 模式暴露到公网（Werkzeug 调试器可执行任意代码）。
+- **`settings.py` 的 `WTF_CSRF_TIME_LIMIT = None` 不要改回默认。** Flask-WTF 默认让
+  CSRF token **一小时**后过期 —— 而观鸟记录常常是写一两个小时的长帖，页面就那么一直
+  开着，到点一提交就是 400，**正文全丢**（2026-07-13 实测撞到过：登录页放了 1 小时
+  54 分，两次 400）。设成 `None` **不放宽任何安全边界**：本站没开 remember-me，session
+  cookie 就是浏览器会话 cookie，于是 token 与登录同寿、活不过登录本身，且仍由
+  `SECRET_KEY` 签名、与 `session['csrf_token']` 绑定 —— 去掉的只是那个多余的时限。
+  CSRF 真失败时（关掉浏览器再回来、清了 cookie、轮换了 `SECRET_KEY`）走
+  `errors/400.html`，明确告诉用户正文还在；`/oss/*` 则回 **JSON** —— 否则
+  `oss-upload.js` 见到 HTML 会一律当成登录失效，谎报一句「登录状态已失效」。
 - **endpoint 必须是 `https://`**，否则上线后传图会静默失效。oss2 对不带协议头的 endpoint
   一律补成 `http://`，签出来的预签名 PUT URL 也就是 http 的 —— 本地开发页面自己是 http，
   http→http 不算混合内容，**本地怎么测都是绿的**；等站点上了 TLS，浏览器会把 https 页面里
@@ -320,7 +355,14 @@ Nginx 反代到 `127.0.0.1:8000`；`app/static/`（css、js、backgrounds）由 
       `image/jpeg`，帖子页缩略图正常
 - [ ] **超限压缩**：传一张超过限额的图（头像 >5MB / 帖子 >20MB）→ 应**弹窗**问要不要压缩
       → 选「取消」则不上传、`photo_key` 保持空；选「确定」则压到限额内并成功上传
-- [ ] **EXIF 旋转**：用手机横拍的照片走一遍压缩路径 → 存下来的图**不能是躺倒的**
+- [ ] **EXIF 旋转**（两条路径，一张手机横拍的照片全能覆盖）。
+      ⚠️ **别用微信 / QQ 把照片传到电脑**——它们会洗掉 EXIF，那就测了个寂寞；
+      用数据线，或发送时选「原图」。
+  - [ ] **原生路径**：≤20MB 的 JPEG 原样直传（EXIF 完好），扶正靠 OSS 的 `auto-orient`
+        → **帖子列表和正文里的缩略图不能躺倒**（点开的原图正着、缩略图躺着，就是这条挂了）
+  - [ ] **转码 / 压缩路径**：HEIC/AVIF，或超限后同意压缩（拿同一张照片设头像，5MB 上限
+        大概率会弹压缩确认框），扶正靠 `oss-upload.js` 的 `imageOrientation:'from-image'`
+        → **存下来的图不能是躺倒的**（导航栏 22×22、资料页 160px 的头像都看一眼）
 
 ### 上线后
 

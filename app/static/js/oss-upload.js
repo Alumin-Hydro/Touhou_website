@@ -144,10 +144,12 @@
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
             body: JSON.stringify({ kind: kind, filename: cand.filename, size: cand.blob.size })
         }).then(function (res) {
-            // 登录过期时 Flask-Login 会 302 到登录页，拿回来的是 HTML 而不是 JSON
+            // 这条路径上后端总是回 JSON —— 连 CSRF 失败也回（见 app/__init__.py 的
+            // csrf_error）。所以拿到 HTML 只意味着「撞上了预期之外的东西」，别替它猜
+            // 具体原因：一句猜错的报错比一句含糊的更误导人。
             var ct = res.headers.get('content-type') || '';
             if (ct.indexOf('application/json') === -1) {
-                throw new Error('登录状态已失效，请重新登录后再试');
+                throw new Error('服务器响应异常（HTTP ' + res.status + '），请刷新页面后重试');
             }
             return res.json().then(function (data) {
                 if (!res.ok) {

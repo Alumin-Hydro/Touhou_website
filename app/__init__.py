@@ -1,7 +1,8 @@
-from flask import Flask, render_template
+from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, current_user
 from flask_wtf import CSRFProtect
+from flask_wtf.csrf import CSRFError
 from sqlalchemy import event
 from settings import Config
 
@@ -70,6 +71,17 @@ def create_app(config_class=Config):
         if current_user.is_authenticated:
             unread_count = Message.query.filter_by(receiver_id=current_user.id, is_read=False).count()
         return dict(boards=Board.query.all(), unread_count=unread_count)
+
+    # CSRF 校验失败。WTF_CSRF_TIME_LIMIT=None 之后这只剩下 session 本身没了的情况
+    # （关掉浏览器再回来、清了 cookie、轮换了 SECRET_KEY）—— 而那时候用户手里往往正
+    # 攥着一篇刚写完的长帖。Flask 默认吐的是英文 400，还不会告诉他正文其实还在。
+    @app.errorhandler(CSRFError)
+    def csrf_error(e):
+        # /oss/sign 是 oss-upload.js 用 fetch 调的：它看见非 JSON 响应会一律当成登录
+        # 失效，报一句风马牛不相及的错。这里回 JSON，真实原因才透得过去。
+        if request.path.startswith('/oss/'):
+            return jsonify(error='页面已过期或登录已失效，请刷新页面后重试'), 400
+        return render_template('errors/400.html'), 400
 
     # 自定义错误页：保持网站和风视觉主题，而非 Flask 默认英文错误页
     @app.errorhandler(403)

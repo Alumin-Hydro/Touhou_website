@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}页面已过期 - 幻想博物志{% endblock %}
+{% block content %}
+<div class="card" style="text-align:center; padding:3rem 1.5rem;">
+    <h2 style="margin-bottom:0.8rem;">⏳ 这张符已经失效了</h2>
+    <p style="color:#7a6a5a;">页面放得太久，或者登录状态在别处变过了，刚才这次提交没能通过校验。</p>
+    <p style="color:#7a6a5a; margin-top:0.8rem;"><strong>你写的内容没有丢。</strong>退回上一页，正文还在框里 ——
+        先把它复制下来，再刷新页面（必要时重新登录），粘回去重新提交一次即可。</p>
+    <p style="margin-top:1.5rem;"><a href="javascript:history.back()" class="btn">返回上一页</a></p>
+</div>
+{% endblock %}
