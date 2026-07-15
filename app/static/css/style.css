@@ -82,11 +82,19 @@ body::before {
     border-radius: 40px;
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
-    gap: 1.5rem;
+    align-items: center;
+    gap: 1rem 1.5rem;
     margin-bottom: 2rem;
     box-shadow: 0 4px 8px var(--shadow);
 }
+.nav-main,
+.nav-right {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.nav-main { gap: 1.5rem; }
+.nav-right { gap: 1rem; margin-left: auto; }
 .nav-links a {
     color: var(--paper);
     text-decoration: none;
@@ -101,8 +109,8 @@ body::before {
     transform: translateY(-2px);
 }
 .user-area {
-    margin-left: auto;
     display: flex;
+    align-items: center;
     gap: 1rem;
 }
 .user-area span {
@@ -323,7 +331,14 @@ th {
     .nav-links {
         flex-direction: column;
         align-items: center;
+        gap: 0.8rem;
+    }
+    .nav-main,
+    .nav-right {
+        flex-direction: column;
+        align-items: center;
         gap: 0.6rem;
+        margin-left: 0;
     }
     .user-area {
         margin-left: 0;

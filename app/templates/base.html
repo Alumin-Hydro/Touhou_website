@@ -40,6 +40,7 @@
         </div>
 
         <div class="nav-links">
+            <div class="nav-main">
             <a href="{{ url_for('index') }}">首页</a>
             {% for board in boards %}
                 <a href="{{ url_for('forum.board', board_id=board.id) }}">{{ board.name }}</a>
@@ -48,7 +49,9 @@
             {% if current_user.is_authenticated and current_user.is_admin %}
                 <a href="{{ url_for('admin.dashboard') }}">管理后台</a>
             {% endif %}
-            <form action="{{ url_for('forum.search') }}" method="get" style="display: inline-block; margin-left: auto;">
+            </div>
+            <div class="nav-right">
+            <form action="{{ url_for('forum.search') }}" method="get">
                     <input type="text" name="q" placeholder="搜索帖子..." style="padding:0.3rem 0.6rem; border-radius:20px; border:none;">
                     <button type="submit" style="background:none; border:none; color:white; cursor:pointer; padding:0.3rem 0.4rem; vertical-align:middle;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
@@ -76,6 +79,7 @@
                     <a href="{{ url_for('auth.register') }}">注册</a>
                 </div>
             {% endif %}
+            </div>
         </div>
 
         {% with messages = get_flashed_messages() %}
