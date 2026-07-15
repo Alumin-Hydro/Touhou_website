@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from app import db
-from app.models import User, Post
+from app.models import User, Post, rank_ladder, MAX_CUSTOM_TITLE
 from app.oss import resolve_upload, delete_by_url
 
 profile_bp = Blueprint('profile', __name__)
@@ -10,7 +10,7 @@ profile_bp = Blueprint('profile', __name__)
 def view_profile(username):
     user = User.query.filter_by(username=username).first_or_404()
     recent_posts = user.posts.order_by(Post.created_at.desc()).limit(5).all()
-    return render_template('profile/view.html', profile_user=user, recent_posts=recent_posts)
+    return render_template('profile/view.html', profile_user=user, recent_posts=recent_posts, rank_ladder=rank_ladder())
 
 @profile_bp.route('/settings', methods=['GET', 'POST'])
 @login_required
@@ -20,7 +20,7 @@ def settings():
 
         if action == 'profile':
             bio = request.form.get('bio', '').strip()
-            custom_title = request.form.get('custom_title', '').strip()[:64]
+            custom_title = request.form.get('custom_title', '').strip()[:MAX_CUSTOM_TITLE]
 
             # 头像已由浏览器直传 OSS，表单里只带回一个 key
             new_avatar = resolve_upload(request.form.get('avatar_key'), current_user.id)

@@ -18,9 +18,6 @@
                 {% if profile_user.custom_title %}
                     <span class="custom-title-badge">{{ profile_user.custom_title }}</span>
                 {% endif %}
-                {% if profile_user.is_admin %}
-                    <span class="achievement-badge badge-dark">管理员</span>
-                {% endif %}
             </div>
             <div class="post-meta">注册于 {{ profile_user.created_at.strftime('%Y年%m月%d日') }}</div>
             {% if profile_user.bio %}
@@ -59,7 +56,7 @@
 {% set achievements = profile_user.get_achievements() %}
 {% if achievements %}
 <div class="card">
-    <h3 style="margin-bottom:1rem;">成就与头衔</h3>
+    <h3 style="margin-bottom:1rem;">成就</h3>
     <div>
         {% for ach in achievements %}
             <span class="achievement-badge badge-{{ ach.color }}" title="{{ ach.desc }}">{{ ach.name }}</span>
@@ -72,19 +69,11 @@
 <div class="card">
     <h3 style="margin-bottom:1rem;">贡献等级说明</h3>
     <div class="rank-table">
-        {% set ranks = [
-            ('初来乍到', '积分 0–4', 'gray'),
-            ('雏鸟', '积分 5–19', 'green'),
-            ('候鸟', '积分 20–49', 'teal'),
-            ('留鸟', '积分 50–99', 'blue'),
-            ('猛禽', '积分 100–199', 'orange'),
-            ('幻想之鸟', '积分 200+', 'red'),
-            ('幻想乡管理员', '管理员特权', 'dark'),
-        ] %}
-        {% for rank_name, rank_cond, rank_color in ranks %}
-            <span class="achievement-badge badge-{{ rank_color }}"
-                  {% if profile_user.get_rank_title() == rank_name %}style="outline:2px solid var(--green-deep);"{% endif %}>
-                {{ rank_name }}
+        {% set current_rank = profile_user.get_rank_title() %}
+        {% for entry in rank_ladder %}
+            <span class="achievement-badge badge-{{ entry.color }}" title="{{ entry.cond }}"
+                  {% if entry.name == current_rank %}style="outline:2px solid var(--green-deep);"{% endif %}>
+                {{ entry.name }}
             </span>
         {% endfor %}
         <p style="font-size:0.8rem; color:#7a6a5a; margin-top:0.5rem;">积分 = 帖子数 × 3 + 回复数。当前高亮为你的等级。</p>

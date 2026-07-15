@@ -2,6 +2,49 @@ from datetime import datetime
 from flask_login import UserMixin
 from app import db, login_manager
 
+# ── 成长体系：单一数据源 ──────────────────────────────────────────
+# 积分 = 帖子数 × 3 + 回复数（见 User.score）。等级 / 成就都读下面这两份常量，
+# 不再在 Python 和模板里各抄一份。
+MAX_CUSTOM_TITLE = 64
+
+# 等级阶梯，从高到低；元素为 (积分下限, 名称, 颜色)。
+RANKS = [
+    (200, '幻想之鸟', 'red'),
+    (100, '猛禽', 'orange'),
+    (50, '留鸟', 'blue'),
+    (20, '候鸟', 'teal'),
+    (5, '雏鸟', 'green'),
+    (0, '初来乍到', 'gray'),
+]
+# 管理员是身份而非积分档位，单独表示（曾被在 3 处各画一遍，现收敛到等级这一处）。
+ADMIN_RANK_NAME = '幻想乡管理员'
+ADMIN_RANK_COLOR = 'dark'
+
+# 成就定义：(指标, 阈值, 名称, 描述, 颜色)；指标 ∈ {'post','comment','bird'}。
+ACHIEVEMENTS = [
+    ('post', 1, '初啼', '发表了第一篇帖子', 'green'),
+    ('post', 10, '博学鸟', '发表了10篇帖子', 'blue'),
+    ('post', 50, '著作等身', '发表了50篇帖子', 'gold'),
+    ('comment', 10, '活跃社员', '发表了10条回复', 'teal'),
+    ('comment', 100, '幻想之声', '发表了100条回复', 'purple'),
+    ('bird', 1, '初次目击', '记录了第一只鸟', 'teal'),
+    ('bird', 5, '观鸟达人', '记录了5种鸟类', 'orange'),
+    ('bird', 20, '幻想博物志', '记录了20种鸟类', 'red'),
+]
+
+
+def rank_ladder():
+    """从低到高的等级阶梯，含派生的积分区间文案，供模板展示。派生自 RANKS，单一数据源。"""
+    ordered = sorted(RANKS, key=lambda r: r[0])  # 按积分下限升序
+    ladder = []
+    for i, (lo, name, color) in enumerate(ordered):
+        hi = ordered[i + 1][0] - 1 if i + 1 < len(ordered) else None
+        cond = f'积分 {lo}+' if hi is None else f'积分 {lo}–{hi}'
+        ladder.append({'name': name, 'color': color, 'cond': cond})
+    ladder.append({'name': ADMIN_RANK_NAME, 'color': ADMIN_RANK_COLOR, 'cond': '管理员特权'})
+    return ladder
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -19,7 +62,7 @@ class User(UserMixin, db.Model):
     # 个人资料
     bio = db.Column(db.Text, nullable=True)
     avatar_url = db.Column(db.String(256), nullable=True)
-    custom_title = db.Column(db.String(64), nullable=True)
+    custom_title = db.Column(db.String(MAX_CUSTOM_TITLE), nullable=True)
     # 搜索偏好
     search_per_page = db.Column(db.Integer, default=20)
     search_scope = db.Column(db.String(20), default='all')
@@ -68,47 +111,37 @@ class User(UserMixin, db.Model):
     def bird_record_count(self):
         return self.posts.filter(Post.bird_name != None, Post.bird_name != '').count()
 
-    def get_rank_title(self):
+    @property
+    def score(self):
+        """贡献积分：驱动等级的唯一数值。公式只此一处。"""
+        return self.post_count * 3 + self.comment_count
+
+    def get_rank(self):
+        """当前等级 {'name','color'}，读自 RANKS 单一数据源。"""
         if self.is_admin:
-            return '幻想乡管理员'
-        score = self.post_count * 3 + self.comment_count
-        if score >= 200:
-            return '幻想之鸟'
-        elif score >= 100:
-            return '猛禽'
-        elif score >= 50:
-            return '留鸟'
-        elif score >= 20:
-            return '候鸟'
-        elif score >= 5:
-            return '雏鸟'
-        else:
-            return '初来乍到'
+            return {'name': ADMIN_RANK_NAME, 'color': ADMIN_RANK_COLOR}
+        score = self.score
+        for min_score, name, color in RANKS:
+            if score >= min_score:
+                return {'name': name, 'color': color}
+        last = RANKS[-1]
+        return {'name': last[1], 'color': last[2]}
+
+    def get_rank_title(self):
+        return self.get_rank()['name']
 
     def get_achievements(self):
-        achievements = []
-        pc = self.post_count
-        cc = self.comment_count
-        bc = self.bird_record_count
-        if pc >= 1:
-            achievements.append({'name': '初啼', 'desc': '发表了第一篇帖子', 'color': 'green'})
-        if pc >= 10:
-            achievements.append({'name': '博学鸟', 'desc': '发表了10篇帖子', 'color': 'blue'})
-        if pc >= 50:
-            achievements.append({'name': '著作等身', 'desc': '发表了50篇帖子', 'color': 'gold'})
-        if cc >= 10:
-            achievements.append({'name': '活跃社员', 'desc': '发表了10条回复', 'color': 'teal'})
-        if cc >= 100:
-            achievements.append({'name': '幻想之声', 'desc': '发表了100条回复', 'color': 'purple'})
-        if bc >= 1:
-            achievements.append({'name': '初次目击', 'desc': '记录了第一只鸟', 'color': 'teal'})
-        if bc >= 5:
-            achievements.append({'name': '观鸟达人', 'desc': '记录了5种鸟类', 'color': 'orange'})
-        if bc >= 20:
-            achievements.append({'name': '幻想博物志', 'desc': '记录了20种鸟类', 'color': 'red'})
-        if self.is_admin:
-            achievements.append({'name': '管理员', 'desc': '幻想乡的管理者', 'color': 'dark'})
-        return achievements
+        """已达成的成就，读自 ACHIEVEMENTS 单一数据源。管理员身份由等级体现，不再作为成就。"""
+        metrics = {
+            'post': self.post_count,
+            'comment': self.comment_count,
+            'bird': self.bird_record_count,
+        }
+        return [
+            {'name': name, 'desc': desc, 'color': color}
+            for metric, threshold, name, desc, color in ACHIEVEMENTS
+            if metrics[metric] >= threshold
+        ]
 
 class Board(db.Model):
     id = db.Column(db.Integer, primary_key=True)
