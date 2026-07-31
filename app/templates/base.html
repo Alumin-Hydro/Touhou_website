@@ -96,6 +96,9 @@
 
         <footer>
             <p>幻想博物志 | 记录幻想的天空 | 由朱鹭子Nipponia、Alumin_Hydro制作</p>
+            {% if config.ICP_BEIAN %}
+                <p><a href="https://beian.miit.gov.cn" target="_blank" rel="noopener">{{ config.ICP_BEIAN }}</a></p>
+            {% endif %}
         </footer>
     </div>
 

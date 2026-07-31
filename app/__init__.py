@@ -4,6 +4,7 @@ from flask_login import LoginManager, current_user
 from flask_wtf import CSRFProtect
 from flask_wtf.csrf import CSRFError
 from sqlalchemy import event
+from werkzeug.middleware.proxy_fix import ProxyFix
 from settings import Config
 
 db = SQLAlchemy()
@@ -25,6 +26,15 @@ def _enable_sqlite_wal(engine):
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
+
+    # 生产上 gunicorn 只听 127.0.0.1，公网由 nginx 反代进来。没有这一层的话 Flask 看到的
+    # 永远是「http + 127.0.0.1」，而 app/utils.py 的邮箱验证链接和找回密码链接都是用
+    # url_for(..., _external=True) 拼的 —— 上了 HTTPS 之后发出去的邮件里仍会是 http:// 链接。
+    # 眼下靠 301 还能跳到 https，但用户看到的是明文链接，且以后加 HSTS 就会直接失效。
+    # 顺带把 X-Real-IP 透进来，否则 request.remote_addr 恒为 127.0.0.1。
+    # 只信任 1 层代理：nginx 就在本机、是唯一的中间层，写 1 才不会被伪造的
+    # X-Forwarded-For 顶穿（客户端自带的那一段永远排在 nginx 追加的真实 IP 前面）。
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     db.init_app(app)
     login_manager.init_app(app)

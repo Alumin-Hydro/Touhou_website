@@ -58,3 +58,10 @@ class Config:
     # 备案通过后换成自定义域名 https://img.gensoumono.cn （OSS 默认域名会给图片
     # 强制加 Content-Disposition: attachment，导致「点开看原图」变成下载）。
     OSS_PUBLIC_BASE = os.getenv('OSS_PUBLIC_BASE', '')
+
+    # ── 合规 ────────────────────────────────────────────────────
+    # ICP 备案号，形如「沪ICP备2026XXXXXXX号」，在阿里云备案控制台查。工信部要求
+    # 大陆站点在页脚展示备案号并链到 beian.miit.gov.cn，不放会被巡查。
+    # 走环境变量而不是写死在模板里：占位号一旦硬编码就很容易跟着代码发到生产上，
+    # 而挂一个错号比不挂更糟。留空时页脚不渲染这一行，本地开发因此无需配置。
+    ICP_BEIAN = os.getenv('ICP_BEIAN', '')
