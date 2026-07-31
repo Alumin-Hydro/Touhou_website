@@ -1,7 +1,7 @@
 # 部署手册：幻想博物志（阿里云 ECS + OSS）
 
-> 域名：`gensoumono.cn`　状态：**ICP 备案已提交，等管局审核**（1–20 工作日）
-> 最后更新：2026-07-14
+> 域名：`gensoumono.cn`　状态：**生产已上线**（HTTPS / ICP / 邮件 / OSS 全链路可用）
+> 最后更新：2026-08-01
 
 ---
 
@@ -9,36 +9,35 @@
 
 | 项 | 现状 |
 |---|---|
-| 应用 | Flask 2.3.3，蓝图：auth / forum / birding / message / profile / admin / **oss** |
-| 数据库 | SQLite（`instance/forum.db`，不入库）；已开 WAL，`settings.py` 支持 `DATABASE_URL` 切换 |
-| 图片 | **浏览器直传阿里云 OSS**，后端只签名与复核，图片不经过本服务 |
-| 邮件 | 126 邮箱 SMTP，SSL 465 端口 |
-| 安全 | CSRF 全覆盖；8 个状态变更路由为 POST-only；密码重置流程已上线 |
-| 服务器 | 阿里云 ECS e 实例，2 核 2G / 3M 固定带宽 / 40G ESSD Entry，大陆地域、包年包月 |
+| 应用 | Flask 2.3.3；生产源码 `/srv/touhou`；Gunicorn 仅监听 `127.0.0.1:8001` |
+| 数据库 | SQLite `/var/lib/touhou/forum.db`（独立于源码部署）；`settings.py` 支持 `DATABASE_URL` 切换 |
+| 图片 | 浏览器直传阿里云 OSS bucket `gensoumono-img`；后端只签名、复核、删除 |
+| 邮件 | 阿里云 DirectMail `smtpdm.aliyun.com:465`；发件人 `verify@auth.groovin.cn` |
+| HTTPS | Nginx 80 → 443；Let's Encrypt 覆盖 apex + `www`；`certbot.timer` 自动续期 |
+| 安全 | CSRF；Secure/HttpOnly/SameSite=Lax Cookie；UFW 只放 22/80/443；安全组 TCP 只放 22/80/443（保留 ICMP）；Fail2ban |
+| 服务器 | 阿里云上海 ECS `i-uf60z751agi7ddrtt7cx`，公网 `106.14.66.88`，Ubuntu 24.04 |
+| 当前版本 | `a7b6585fe4b383df6b11cd2ee89577d238bfae53` |
 
-### 上线前还剩什么
+### 上线状态与剩余待办
 
-- [x] ~~轮换 `SECRET_KEY`~~ —— 已于 2026-07-12 换成新的 32 字节随机值
-- [x] ~~在阿里云控制台开 OSS~~ —— bucket `gensoumono-img`（`oss-cn-shanghai`，公共读）
-      已建好并填进 `.env`，`python check_oss.py` 对着真实 bucket 全绿
-- [ ] **bucket 跨域规则补上生产来源**（控制台的活，代码里做不了）—— 现在只配了两个本地
-      来源，`https://gensoumono.cn` 与 `https://www.gensoumono.cn` 的预检**当前返 403**。
-      备案通过、域名上线那天传图会直接挂，而那已是几周之后，届时极难想到症结在这儿。
-      bucket → 数据安全 → 跨域设置，Methods 勾 PUT/GET/HEAD。
-      `check_oss.py` 第 0 步会一直用 `!` 提醒（算警告，不算失败）。
-- [ ] **轮换 126 邮箱 SMTP 授权码** —— 曾进入已推送的 git 历史，须视为已泄露。
-      去 126 邮箱后台重置，然后更新 `.env` 的 `MAIL_PASSWORD`。
-- [ ] **EXIF 旋转实测** —— 第 7 节本地清单上唯一还没走过的一项，要一张手机横拍的照片
-- [ ] 备案通过后：绑自定义域名、签证书、页脚放备案号、30 天内做公安备案
+- [x] `SECRET_KEY` 使用生产随机值
+- [x] OSS bucket 与 RAM 子账号就绪
+- [x] OSS CORS 已包含本地、`https://gensoumono.cn`、`https://www.gensoumono.cn`；
+      PUT/GET/HEAD 公网实测通过
+- [x] 旧 126 SMTP 已停用；生产已切到 DirectMail，收件端实测 SPF/DKIM pass
+- [x] ICP 已通过并展示 `京ICP备2026030889号-2`
+- [x] apex / `www` TLS、HTTP 跳转、自动续期 dry-run 均通过
+- [ ] **EXIF 旋转实测** —— 第 7 节两条手机横拍路径仍需真照片验收
+- [ ] **公安联网备案** —— ICP 通过后 30 日内在 `www.beian.gov.cn` 完成
+- [ ] 可选：为 OSS 绑定 `img.gensoumono.cn`，改善“点击原图”时默认 endpoint 触发下载的体验
 
-### 备案卡什么、不卡什么
+### 当前公网入口
 
-**不卡**：本地开发与测试、OSS 直传本身（用默认 endpoint + CORS 就能跑通）、
-`<img>` 展示图片、在 ECS 上用 `http://<公网IP>:8000` 自测（避开 80/443）。
-
-**只卡一件事**：用 `gensoumono.cn` 在大陆 ECS 上对公网提供服务（80/443）。
-阿里云在网络层按 Host/SNI 拦截未备案域名，跟代码无关。附带地，大陆 bucket
-绑自定义域名（`img.gensoumono.cn`）同样要备案。
+- `http://gensoumono.cn/*` → `301 https://gensoumono.cn/*`
+- `https://www.gensoumono.cn/*` → `301 https://gensoumono.cn/*`
+- `https://gensoumono.cn/` → Nginx → `127.0.0.1:8001`
+- 未知 Host/SNI 返回 444；Gunicorn 的 8001 不进入阿里云安全组，也不在 UFW 放行
+- 管理员密码不写进仓库或手册，统一存于 `~/.api_keys.json` 的 `gensoumono` 节（文件权限 600）
 
 ---
 
@@ -223,7 +222,7 @@ with app.app_context():
 
 ## 4. ECS 初始化与部署
 
-备案期间就可以先搭好，用 `http://<公网IP>:8000` 自测（安全组临时放行 8000，别碰 80/443）。
+生产部署不公开 Gunicorn 端口：应用只绑定 `127.0.0.1:8001`，公网统一经过 Nginx 80/443。
 
 系统选 **Ubuntu 24.04 LTS**：自带 Python 3.12，与本地 `.venv` 一致，消除版本漂移。
 
@@ -256,7 +255,7 @@ User=www-data
 WorkingDirectory=/srv/touhou
 EnvironmentFile=/srv/touhou/.env
 ExecStart=/srv/touhou/.venv/bin/gunicorn -w 3 -k gthread --threads 2 \
-          -b 127.0.0.1:8000 --timeout 60 run:app
+          -b 127.0.0.1:8001 --timeout 60 run:app
 Restart=always
 
 [Install]
@@ -266,20 +265,19 @@ WantedBy=multi-user.target
 3 个 worker 是 2G 内存下的稳妥值（每个 Flask+SQLAlchemy worker 约 80–120MB）。
 别套用 `2*核数+1` 的公式。
 
-Nginx 反代到 `127.0.0.1:8000`；`app/static/`（css、js、backgrounds）由 Nginx 直接 serve。
+Nginx 反代到 `127.0.0.1:8001`；`app/static/`（css、js、backgrounds）由 Nginx 直接 serve。
 
 `.env` 权限收紧：`chmod 600 .env && chown www-data:www-data .env`
 
 ---
 
-## 5. 备案通过后
+## 5. 备案通过后的现状
 
-1. 域名解析：`gensoumono.cn` / `www` → ECS 公网 IP；`img.gensoumono.cn` → OSS
-2. OSS 绑定自定义域名 `img.gensoumono.cn`（子域名继承主域名备案，无需单独备案），
-   然后把 `.env` 的 `OSS_PUBLIC_BASE` 换成 `https://img.gensoumono.cn`
-3. certbot 签 Let's Encrypt 证书，Nginx 上 TLS
-4. **页脚放备案号**并链到 `https://beian.miit.gov.cn` —— 硬性合规要求，不放会被巡查
-5. **公安联网备案**：ICP 备案通过后 **30 日内**在 www.beian.gov.cn 完成
+1. [x] `gensoumono.cn` / `www` 指向 ECS；`www` 归一到 apex
+2. [ ] OSS 自定义域名 `img.gensoumono.cn` 尚未绑定；当前继续使用 bucket 默认域名
+3. [x] Let's Encrypt 已签发并启用；`certbot renew --dry-run` 通过
+4. [x] 页脚展示 `京ICP备2026030889号-2` 并链接工信部
+5. [ ] **公安联网备案**：ICP 通过后 **30 日内**在 `www.beian.gov.cn` 完成
 
 > **已入库的老图片 URL 带的是 OSS 默认域名，换 `OSS_PUBLIC_BASE` 后它们不会跟着变。**
 > `app/oss.py` 的 `_known_bases()` 因此**同时认两个前缀**（当前的 `OSS_PUBLIC_BASE`
@@ -332,7 +330,7 @@ Nginx 反代到 `127.0.0.1:8000`；`app/static/`（css、js、backgrounds）由 
   可 `avatar_url` 就是空的 —— 原来是 `confirm_upload` 复核字节时不认识，**删掉对象**后
   只 flash 了一句「文件内容不是有效的图片」。**整张图已经传完了才被拒。**
   现在由 `oss-upload.js` 在选图时就嗅格式并转码（见第 2 节第 ⓪ 步）。
-- **备案期间域名不可用**，用 `IP:8000` 调试，别用 80/443。
+- **生产环境不要临时公开 8000/8001**：Gunicorn 只绑 `127.0.0.1:8001`；安全组与 UFW 都只放 22/80/443。
 - **`requirements.txt` 现已全部钉死版本**。注意 Flask 2.3.3 只声明 `Werkzeug>=2.3.7`
   而无上限 —— 本地实测跑的是 Werkzeug 3.1.8，已钉住；别让线上解析到别的大版本。
 
@@ -364,13 +362,46 @@ Nginx 反代到 `127.0.0.1:8000`；`app/static/`（css、js、backgrounds）由 
         大概率会弹压缩确认框），扶正靠 `oss-upload.js` 的 `imageOrientation:'from-image'`
         → **存下来的图不能是躺倒的**（导航栏 22×22、资料页 160px 的头像都看一眼）
 
-### 上线后
+### 上线后（2026-08-01 公网验收）
 
-- [ ] `GET /` 返回 200，首页「发布新记录」指向「观鸟记录」板块
-- [ ] 注册 → 收到验证邮件 → 验证 → 登录
+- [x] `GET /` 返回 200，首页原始数据与板块正常
+- [x] 注册 → DirectMail 验证邮件 → 验证 → 登录 → 刷新恢复 session
+- [x] 头像 OSS 直传；发图帖；回复；登出重登后帖子与回复持久化；测试对象已从 DB/OSS 清理
+- [x] 管理员新密码登录并进入 `/admin/`；凭证只保存在 `~/.api_keys.json`
 - [ ] 忘记密码 → 收到重置邮件 → 重置 → 用新密码登录
 - [ ] 收件箱、**发件箱**删除私信均正常（发件箱曾因路由改 POST 而漏改模板，返回 405）
-- [ ] 后台：置顶 / 删帖 / 删用户 / 切换管理员 / 解除禁言
-- [ ] 访问不存在的 URL → 自定义 404 页
-- [ ] 生产环境确认 `app.debug is False`
-- [ ] 页脚备案号已放、公安备案已做
+- [ ] 后台破坏性动作：置顶 / 删帖 / 删用户 / 切换管理员 / 解除禁言
+- [x] 不存在 URL 返回自定义 404（“这只鸟飞走了”）
+- [x] `app.debug is False`
+- [x] CSRF 否定测试 400；路径穿越 400/404；公网 8000/8001 不可达；未知 Host 拒绝
+- [x] 桌面与 390px 手机真实 Chromium 视觉冒烟；控制台/HTTP 错误为 0；无横向溢出
+- [x] 页脚备案号已放
+- [ ] 公安联网备案已做
+
+---
+
+## 8. 生产路径、备份与回滚
+
+### 关键路径
+
+- 源码与 venv：`/srv/touhou`、`/srv/touhou/.venv`
+- 生产环境：`/srv/touhou/.env`（`www-data:www-data`，0600）
+- 持久化数据库：`/var/lib/touhou/forum.db`
+- 当前版本标记：`/var/lib/touhou/deployed-commit`
+- systemd：`/etc/systemd/system/touhou.service`
+- Nginx：`/etc/nginx/sites-available/touhou`、`/etc/nginx/conf.d/touhou-rate-limit.conf`、
+  `/etc/nginx/snippets/touhou-proxy.conf`
+- 证书：`/etc/letsencrypt/live/gensoumono.cn/`
+- 本机部署证据与验收截图：`~/Project/gensoumono-ops/`
+
+### 2026-08-01 回滚点
+
+- `/var/backups/touhou/20260801-020722`：正式应用部署前的源码、`.env`、SQLite、systemd、Nginx
+- `/var/backups/touhou/20260801-021232`：切换最终 TLS Nginx 配置前
+- `/var/backups/touhou/20260801-024943`：移动端长标题换行热修前的 CSS 与基础模板
+- `/var/backups/touhou/20260801-020455`：第一次就绪探测过快时自动回滚使用的快照（保留作证据）
+
+回滚前先再做一份当前 DB 与配置备份。只回退移动端修复时，恢复 `024943` 中的
+`style.css` / `base.html` 并重启 `touhou`；回退 TLS 时恢复 `021232` 的 Nginx 配置，
+执行 `nginx -t` 后 reload；完整回退才使用 `020722` 的源码、环境和数据库。任何回退后都要复核：
+`systemctl is-active touhou nginx`、本机 8001、公网 HTTPS、注册登录与 OSS。
