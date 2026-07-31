@@ -27,6 +27,12 @@ body {
     background-position: center center;
 }
 
+/* 用户名、帖子标题和外部链接都可能是无空格长串。让链接在窄屏拥有可断点，
+   而不是以 min-content 宽度把卡片和整个页面撑出视口。 */
+a {
+    overflow-wrap: anywhere;
+}
+
 body::before {
     content: "";
     position: fixed;
@@ -140,10 +146,13 @@ body::before {
 .post-title {
     font-size: 1.3rem;
     font-weight: bold;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 .post-title a {
     color: var(--green-deep);
     text-decoration: none;
+    overflow-wrap: anywhere;
 }
 .post-title a:hover {
     color: var(--red-accent);
@@ -153,6 +162,11 @@ body::before {
     font-size: 0.85rem;
     color: #7a6a5a;
     margin-top: 0.3rem;
+    overflow-wrap: anywhere;
+}
+.post-meta a,
+.card > h2 {
+    overflow-wrap: anywhere;
 }
 .bird-badge {
     background: var(--red-light);

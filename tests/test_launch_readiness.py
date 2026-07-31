@@ -5,6 +5,7 @@ from email.parser import Parser
 from email.utils import parseaddr
 import importlib
 import os
+import re
 
 import pytest
 
@@ -141,6 +142,16 @@ def test_registration_form_exposes_password_requirement_without_provider_brand(a
     html = app.test_client().get("/auth/register").get_data(as_text=True)
     assert 'minlength="8"' in html
     assert "基于126 SMTP" not in html
+
+
+def test_mobile_post_titles_wrap_and_stylesheet_cache_is_busted(app):
+    client = app.test_client()
+    css = client.get("/static/css/style.css").get_data(as_text=True)
+    assert re.search(r"\.post-title\s*\{[^}]*overflow-wrap:\s*anywhere", css, re.S)
+    assert re.search(r"\.post-meta\s*\{[^}]*overflow-wrap:\s*anywhere", css, re.S)
+    assert re.search(r"^a\s*\{[^}]*overflow-wrap:\s*anywhere", css, re.M | re.S)
+    html = client.get("/").get_data(as_text=True)
+    assert "style.css?v=20260801-mobile-wrap" in html
 
 
 def test_smtp_message_from_header_contains_configured_sender_address(app, monkeypatch):
