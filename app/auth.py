@@ -7,15 +7,33 @@ from app.utils import (
     send_verification_email, send_reset_email,
 )
 from werkzeug.security import generate_password_hash
+from email_validator import EmailNotValidError, validate_email
 
 auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
+        username = request.form['username'].strip()
+        email = request.form['email'].strip()
         password = request.form['password']
+        if not username:
+            flash('用户名不能为空')
+            return redirect(url_for('auth.register'))
+        if len(username) > 64:
+            flash('用户名不能超过64个字符')
+            return redirect(url_for('auth.register'))
+        if len(password) < 8:
+            flash('密码至少需要8位')
+            return redirect(url_for('auth.register'))
+        try:
+            email = validate_email(email, check_deliverability=False).normalized
+        except EmailNotValidError:
+            flash('请输入有效的邮箱地址')
+            return redirect(url_for('auth.register'))
+        if len(email) > 120:
+            flash('邮箱地址不能超过120个字符')
+            return redirect(url_for('auth.register'))
         # 简单校验
         if User.query.filter_by(username=username).first():
             flash('用户名已存在')

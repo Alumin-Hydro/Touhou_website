@@ -10,6 +10,15 @@ load_dotenv(dotenv_path=dotenv_path)
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-change-in-production')
 
+    # HTTPS 由 Nginx 终止。Secure 默认开启；本地纯 HTTP 开发时只有显式设置
+    # SESSION_COOKIE_SECURE=false 才关闭。其余属性也使用安全默认值。
+    SESSION_COOKIE_SECURE = os.getenv(
+        'SESSION_COOKIE_SECURE', 'true'
+    ).strip().lower() != 'false'
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    PREFERRED_URL_SCHEME = 'https'
+
     # Flask-WTF 默认让 CSRF token 一小时后过期。观鸟记录常常是写一两个小时的长帖，
     # 页面就那么一直开着 —— 到点一提交就是 400，正文全丢（2026-07-13 实测撞到过）。
     # 设成 None 后 token 与 session 同寿：本站没开 remember-me，session cookie 就是

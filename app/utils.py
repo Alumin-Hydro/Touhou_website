@@ -3,6 +3,7 @@ import smtplib
 import base64
 from email.mime.text import MIMEText
 from email.header import Header
+from email.utils import formataddr
 from flask import current_app, url_for
 from itsdangerous import URLSafeTimedSerializer
 
@@ -22,18 +23,21 @@ def confirm_verify_token(token, expiration=3600, salt='email-verify'):
 
 def _send_html_email(user_email, subject, html):
     """发送 HTML 邮件的底层 SMTP 逻辑（增强版，强制 AUTH LOGIN），成功返回 True。"""
-    msg = MIMEText(html, 'html', 'utf-8')
-    msg['Subject'] = Header(subject, 'utf-8')
-    msg['From'] = Header('幻想博物志', 'utf-8')
-    msg['To'] = Header(user_email, 'utf-8')
-
-    # 从配置读取
-    smtp_server = current_app.config['MAIL_SERVER']
-    smtp_port = current_app.config['MAIL_PORT']
-    sender_email = current_app.config['MAIL_USERNAME']
-    password = current_app.config['MAIL_PASSWORD']
-
     try:
+        # 配置和邮件头构造也属于可恢复的发送流程。配置缺失时返回 False，让注册路由
+        # 回滚尚未验证的用户，而不是在进入 SMTP try 之前抛异常造成 500。
+        smtp_server = current_app.config['MAIL_SERVER']
+        smtp_port = current_app.config['MAIL_PORT']
+        sender_email = current_app.config['MAIL_USERNAME']
+        password = current_app.config['MAIL_PASSWORD']
+        if not sender_email or not password:
+            raise ValueError('邮件服务账号或密码未配置')
+
+        msg = MIMEText(html, 'html', 'utf-8')
+        msg['Subject'] = str(Header(subject, 'utf-8'))
+        msg['From'] = formataddr(('幻想博物志', sender_email))
+        msg['To'] = str(Header(user_email, 'utf-8'))
+
         # 方法一：使用 SSL 直接连接（端口465）
         if smtp_port == 465:
             with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=30) as smtp:
