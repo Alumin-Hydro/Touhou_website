@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png', v='20260801-bird-seal') }}">
     <link rel="manifest" href="{{ url_for('static', filename='icons/site.webmanifest', v='20260801-bird-seal') }}">
     <link href="https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Noto+Serif+SC:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260801-mobile-wrap') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260801-staff-console') }}">
     <style>
         body {
             position: relative;
@@ -45,48 +45,71 @@
             <p>「幻想乡的群鸟」</p>
         </div>
 
-        <div class="nav-links">
-            <div class="nav-main">
-            <a href="{{ url_for('index') }}">首页</a>
-            {% for board in boards %}
-                <a href="{{ url_for('forum.board', board_id=board.id) }}">{{ board.name }}</a>
-            {% endfor %}
-            <a href="{{ url_for('birding.bird_list') }}">鸟类图鉴</a>
-            {% if current_user.is_authenticated and current_user.is_admin %}
-                <a href="{{ url_for('admin.dashboard') }}">管理后台</a>
-            {% endif %}
-            </div>
-            <div class="nav-right">
-            <form action="{{ url_for('forum.search') }}" method="get">
-                    <input type="text" name="q" placeholder="搜索帖子..." style="padding:0.3rem 0.6rem; border-radius:20px; border:none;">
-                    <button type="submit" style="background:none; border:none; color:white; cursor:pointer; padding:0.3rem 0.4rem; vertical-align:middle;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
-                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                        </svg>
-                    </button>
-                    </form>
-            {% if current_user.is_authenticated %}
-        	<div class="user-area">
-                <a href="{{ url_for('profile.view_profile', username=current_user.username) }}" style="display:flex; align-items:center; gap:0.4rem;">
-                    {% if current_user.avatar_url %}
-                        <img src="{{ current_user.avatar_url | thumb(64) }}" alt="" style="width:22px; height:22px; border-radius:50%; object-fit:cover; vertical-align:middle;">
-                    {% else %}
-                        <span style="width:22px; height:22px; border-radius:50%; background:var(--green-soft); display:inline-flex; align-items:center; justify-content:center; font-size:0.75rem; color:white; flex-shrink:0;">{{ current_user.username[0] }}</span>
+        <details class="site-nav" open>
+            <summary class="nav-toggle">
+                <span class="nav-label-closed">展开导航</span>
+                <span class="nav-label-open">收起导航</span>
+                <span class="nav-toggle-icon" aria-hidden="true">⌄</span>
+            </summary>
+            <nav class="nav-links" aria-label="主导航">
+                <div class="nav-main">
+                    <a href="{{ url_for('index') }}">首页</a>
+                    {% for board in boards %}
+                        <a href="{{ url_for('forum.board', board_id=board.id) }}">{{ board.name }}</a>
+                    {% endfor %}
+                    <a href="{{ url_for('birding.bird_list') }}">鸟类图鉴</a>
+                    {% if current_user.is_authenticated and current_user.is_staff %}
+                        <a href="{{ url_for('admin.dashboard') }}">管理后台</a>
                     {% endif %}
-                    {{ current_user.username }}
-                </a>
-        	<a href="{{ url_for('message.inbox') }}">私信{% if unread_count > 0 %} ({{ unread_count }}){% endif %}</a>
-                <a href="{{ url_for('profile.settings') }}">设置</a>
-        	<a href="{{ url_for('auth.logout') }}">登出</a>
-        	</div>
-            {% else %}
-                <div class="user-area">
-                    <a href="{{ url_for('auth.login') }}">登录</a>
-                    <a href="{{ url_for('auth.register') }}">注册</a>
                 </div>
-            {% endif %}
-            </div>
-        </div>
+                <div class="nav-right">
+                    <form action="{{ url_for('forum.search') }}" method="get" role="search">
+                        <label class="sr-only" for="site-search">搜索帖子</label>
+                        <input id="site-search" type="text" name="q" placeholder="搜索帖子...">
+                        <button type="submit" aria-label="搜索">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                        </button>
+                    </form>
+                    {% if current_user.is_authenticated %}
+                        <div class="user-area">
+                            <a class="current-user-link" href="{{ url_for('profile.view_profile', username=current_user.username) }}">
+                                {% if current_user.avatar_url %}
+                                    <img src="{{ current_user.avatar_url | thumb(64) }}" alt="{{ current_user.username }} 的头像" class="nav-avatar">
+                                {% else %}
+                                    <span class="nav-avatar-placeholder" aria-hidden="true">{{ current_user.username[0] }}</span>
+                                {% endif %}
+                                {{ current_user.username }}
+                            </a>
+                            <a href="{{ url_for('message.inbox') }}">私信{% if unread_count > 0 %} ({{ unread_count }}){% endif %}</a>
+                            <a href="{{ url_for('profile.settings') }}">设置</a>
+                            <a href="{{ url_for('auth.logout') }}">登出</a>
+                        </div>
+                    {% else %}
+                        <div class="user-area">
+                            <a href="{{ url_for('auth.login') }}">登录</a>
+                            <a href="{{ url_for('auth.register') }}">注册</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </nav>
+        </details>
+        <script>
+            (() => {
+                const nav = document.querySelector('.site-nav');
+                const mobile = window.matchMedia('(max-width: 768px)');
+                const syncNavMode = event => {
+                    if (event.matches) {
+                        nav.removeAttribute('open');
+                    } else {
+                        nav.setAttribute('open', '');
+                    }
+                };
+                syncNavMode(mobile);
+                mobile.addEventListener('change', syncNavMode);
+            })();
+        </script>
 
         {% with messages = get_flashed_messages() %}
             {% if messages %}

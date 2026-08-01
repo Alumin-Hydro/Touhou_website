@@ -1,19 +1,51 @@
 {% extends "base.html" %}
-{% block title %}管理仪表盘{% endblock %}
+{% block title %}管理后台 - 幻想博物志{% endblock %}
 {% block content %}
-<div class="card">
-    <h2>管理后台</h2>
-    <p>欢迎回来，管理员 {{ current_user.username }}</p>
-    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-        <a href="{{ url_for('admin.users') }}" class="btn">用户管理</a>
-        <a href="{{ url_for('admin.posts') }}" class="btn">帖子管理</a>
-    </div>
-    <hr>
-    <h3>统计信息</h3>
-    <ul>
-        <li>用户总数：{{ user_count }}</li>
-        <li>帖子总数：{{ post_count }}</li>
-        <li>评论总数：{{ comment_count }}</li>
-    </ul>
+<div class="admin-shell">
+    <section class="card admin-hero">
+        <p class="admin-eyebrow">Gensoumono · Staff Console</p>
+        <div class="admin-heading-row">
+            <div>
+                <h2>幻想博物志管理台</h2>
+                <p>欢迎回来，{{ current_user.username }}。这里集中处理用户、权限与站内内容。</p>
+            </div>
+            <span class="role-pill {{ 'role-owner' if current_user.is_site_owner else 'role-admin' }}">
+                {{ current_user.role_label }}
+            </span>
+        </div>
+    </section>
+
+    <section class="admin-stats" aria-label="站点统计">
+        <div class="admin-stat"><strong>{{ user_count }}</strong><span>注册用户</span></div>
+        <div class="admin-stat"><strong>{{ admin_count }}</strong><span>管理员</span></div>
+        <div class="admin-stat"><strong>{{ post_count }}</strong><span>帖子</span></div>
+        <div class="admin-stat"><strong>{{ comment_count }}</strong><span>回复</span></div>
+    </section>
+
+    <section class="admin-grid">
+        <article class="card admin-action-card">
+            <p class="admin-eyebrow">Access & Safety</p>
+            <h3>用户与权限</h3>
+            <p>
+                {% if current_user.is_site_owner %}
+                    任命或撤销管理员，并处理普通用户的禁言与账号状态。
+                {% else %}
+                    处理普通用户的禁言与账号状态；管理员任免仅由站长执行。
+                {% endif %}
+            </p>
+            <a href="{{ url_for('admin.users') }}" class="btn">进入用户管理</a>
+        </article>
+
+        <article class="card admin-action-card">
+            <p class="admin-eyebrow">Content Moderation</p>
+            <h3>帖子管理</h3>
+            <p>查看、置顶、编辑或删除站内帖子；帖子页内也可删除违规回复。</p>
+            <a href="{{ url_for('admin.posts') }}" class="btn">进入帖子管理</a>
+        </article>
+    </section>
+
+    <aside class="admin-note">
+        权限规则：站长和管理员都能管理内容；只有站长能任命管理员。管理员与站长账号不能被其他站务账号直接禁言或删除。
+    </aside>
 </div>
 {% endblock %}

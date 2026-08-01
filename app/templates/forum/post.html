@@ -30,17 +30,20 @@
     </div>
     <div style="white-space: pre-wrap;">{{ post.content }}</div>
 
-    <!-- 操作按钮：作者可以编辑/删除，管理员可以编辑（管理员编辑走后台） -->
+    <!-- 操作按钮：作者管理自己的帖子；站长/管理员可管理全部帖子。 -->
     <div style="margin-top:1rem;">
         {% if current_user == post.author %}
             <a href="{{ url_for('forum.edit_post', post_id=post.id) }}" class="btn" style="background:#c75c3c;">编辑帖子</a>
             <form method="post" action="{{ url_for('forum.delete_post', post_id=post.id) }}" style="display:inline;" onsubmit="return confirm('确定删除此帖子吗？');">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn" style="background:#7a6a5a;">删除帖子</button>
+                <button type="submit" class="btn btn-muted">删除帖子</button>
             </form>
-        {% endif %}
-        {% if current_user.is_authenticated and current_user.is_admin %}
-            <a href="{{ url_for('admin.edit_post', post_id=post.id) }}" class="btn" style="background:#2a5c3e;">管理员编辑</a>
+        {% elif current_user.is_authenticated and current_user.can_manage_content %}
+            <a href="{{ url_for('admin.edit_post', post_id=post.id) }}" class="btn">站务编辑</a>
+            <form method="post" action="{{ url_for('forum.delete_post', post_id=post.id) }}" style="display:inline;" onsubmit="return confirm('确定以站务身份删除此帖子吗？');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-danger">站务删除</button>
+            </form>
         {% endif %}
     </div>
 </div>
@@ -54,7 +57,7 @@
                 <small>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
             </div>
             <div>{{ comment.content }}</div>
-            {% if current_user == comment.author or (current_user.is_authenticated and current_user.is_admin) %}
+            {% if current_user == comment.author or (current_user.is_authenticated and current_user.can_manage_content) %}
                 <form method="post" action="{{ url_for('forum.delete_comment', comment_id=comment.id) }}" style="display:inline;" onsubmit="return confirm('删除此回复？');">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" style="font-size:0.8rem; color:var(--red-accent); background:none; border:none; padding:0; cursor:pointer; text-decoration:underline;">删除回复</button>

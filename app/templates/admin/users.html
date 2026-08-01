@@ -1,55 +1,91 @@
 {% extends "base.html" %}
-{% block title %}用户管理{% endblock %}
+{% block title %}用户与权限 - 管理后台{% endblock %}
 {% block content %}
-<div class="card">
-    <h2>用户列表</h2>
-    <table style="width:100%; border-collapse: collapse;">
-        <thead>
-            <tr><th>ID</th><th>用户名</th><th>邮箱</th><th>已验证</th><th>管理员</th><th>禁言状态</th><th>禁言到期</th><th>操作</th></tr>
-        </thead>
-        <tbody>
-        {% for user in users %}
-        <tr style="border-bottom:1px solid #ddd;">
-            <td>{{ user.id }}</td>
-            <td>{{ user.username }}</td>
-            <td>{{ user.email }}</td>
-            <td>{{ "是" if user.verified else "否" }}</td>
-            <td>{{ "是" if user.is_admin else "否" }}</td>
-            <td>
-                {% if user.is_muted %}
-                    禁言中
-                    {% if user.mute_expires %}
-                        (至 {{ user.mute_expires.strftime('%Y-%m-%d %H:%M') }})
-                    {% else %}
-                        (永久)
-                    {% endif %}
-                {% else %}
-                    正常
-                {% endif %}
-            </td>
-            <td>
-                {% if user.is_muted %}
-                    <form method="post" action="{{ url_for('admin.unmute_user', user_id=user.id) }}" style="display:inline;">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn" style="background:#2a5c3e;">解禁</button>
-                    </form>
-                {% else %}
-                    <a href="{{ url_for('admin.mute_user', user_id=user.id) }}" class="btn" style="background:#c75c3c;">禁言</a>
-                {% endif %}
-            </td>
-            <td>
-                <form method="post" action="{{ url_for('admin.toggle_admin', user_id=user.id) }}" style="display:inline;" onsubmit="return confirm('确定要切换该用户的管理员权限吗？');">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn" style="padding:0.2rem 0.5rem;">切换管理</button>
-                </form>
-                <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}" style="display:inline;" onsubmit="return confirm('确定删除？');">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn" style="background:#7a6a5a;">删除</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+<div class="admin-shell">
+    <section class="card admin-hero">
+        <p class="admin-eyebrow">Staff Console · User Access</p>
+        <div class="admin-heading-row">
+            <div>
+                <h2>用户与权限</h2>
+                <p>管理账号状态，并按站务层级授予最少必要权限。</p>
+            </div>
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-muted">返回总览</a>
+        </div>
+    </section>
+
+    <div class="admin-note">
+        {% if current_user.is_site_owner %}
+            你是站长：可以任命或撤销管理员。站长身份不会通过网页转移或撤销。
+        {% else %}
+            仅站长可以任命或撤销管理员；管理员可处理普通用户和站内内容。
+        {% endif %}
+    </div>
+
+    <section class="card">
+        <div class="admin-card-header">
+            <h3>全部用户</h3>
+            <span class="status-pill status-ok">{{ users|length }} 人</span>
+        </div>
+        <div class="admin-user-list">
+            {% for user in users %}
+                <article class="admin-user-card">
+                    <div class="admin-user-head">
+                        <div class="admin-user-identity">
+                            <a href="{{ url_for('profile.view_profile', username=user.username) }}">{{ user.username }}</a>
+                            <small>#{{ user.id }}</small>
+                        </div>
+                        <div>
+                            <span class="role-pill {% if user.is_site_owner %}role-owner{% elif user.is_admin %}role-admin{% else %}role-member{% endif %}">
+                                {{ user.role_label }}
+                            </span>
+                            <span class="status-pill {{ 'status-muted' if user.is_muted else 'status-ok' }}">
+                                {{ '禁言中' if user.is_muted else '状态正常' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <p class="admin-user-meta">
+                        {{ user.email }} · 邮箱{{ '已验证' if user.verified else '未验证' }}
+                        {% if user.is_muted and user.mute_expires %}
+                            · 禁言至 {{ user.mute_expires.strftime('%Y-%m-%d %H:%M') }}
+                        {% elif user.is_muted %}
+                            · 永久禁言
+                        {% endif %}
+                    </p>
+
+                    <div class="admin-actions">
+                        {% if current_user.is_site_owner and not user.is_site_owner and (user.is_admin or not user.is_muted) %}
+                            <form method="post" action="{{ url_for('admin.set_user_role', user_id=user.id) }}" onsubmit="return confirm('{{ '确定撤销该管理员吗？' if user.is_admin else '确定任命该用户为管理员吗？' }}');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="role" value="{{ 'member' if user.is_admin else 'admin' }}">
+                                <button type="submit" class="btn {{ 'btn-muted' if user.is_admin else '' }}">
+                                    {{ '撤销管理员' if user.is_admin else '任命管理员' }}
+                                </button>
+                            </form>
+                        {% endif %}
+
+                        {% if not user.is_staff %}
+                            {% if user.is_muted %}
+                                <form method="post" action="{{ url_for('admin.unmute_user', user_id=user.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn">解除禁言</button>
+                                </form>
+                            {% else %}
+                                <a href="{{ url_for('admin.mute_user', user_id=user.id) }}" class="btn btn-danger">禁言</a>
+                            {% endif %}
+                            <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}" onsubmit="return confirm('确定删除这个普通用户？该操作不可撤销。');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-muted">删除用户</button>
+                            </form>
+                        {% else %}
+                            <span class="admin-user-meta">站务账号受保护；需先由站长撤销管理员身份。</span>
+                        {% endif %}
+                    </div>
+                </article>
+            {% else %}
+                <p>暂无用户。</p>
+            {% endfor %}
+        </div>
+    </section>
 </div>
 {% endblock %}

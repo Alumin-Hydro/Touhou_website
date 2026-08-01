@@ -197,27 +197,45 @@ sudo mkdir -p /var/lib/touhou && sudo chown www-data:www-data /var/lib/touhou
 ```
 
 **何时迁 PostgreSQL**：发帖/回复开始偶发 `database is locked` 时再说。届时
-`settings.py` 只需换 `DATABASE_URL`、加 `psycopg[binary]`；`run.py` 的 `migrate_db()`
-用的是标准 `ALTER TABLE ... ADD COLUMN`，Postgres 同样支持。
+`settings.py` 只需换 `DATABASE_URL`、加 `psycopg[binary]`；`app/maintenance.py`
+会按 SQLite / PostgreSQL 方言生成正确的布尔默认值和唯一站长索引。
 
-### 首次初始化
+### 初始化与每次升级
 
-`run.py` 的建表逻辑写在 `if __name__ == '__main__':` 里，gunicorn 不会执行。
-首次部署需手动跑一次：
+Gunicorn 只导入 `run:app`，不会执行 `run.py` 的 `__main__`。新装和已有数据库
+都必须在启动新 worker **之前**显式执行维护入口：
 
 ```bash
-.venv/bin/python -c "
-from run import app, migrate_db
-from app import db
-from app.models import Board
+cd /srv/touhou
+sudo -u www-data .venv/bin/python -c "
+from run import app
+from app.maintenance import initialize_database
 with app.app_context():
-    db.create_all(); migrate_db()
-    if Board.query.count() == 0:
-        for n in ['综合讨论','观鸟记录','东方鸟类考据','绘画与创作']:
-            db.session.add(Board(name=n, description=f'{n}板块'))
-        db.session.commit()
+    initialize_database()
 "
 ```
+
+`initialize_database()` 是幂等的，固定完成三件事：
+
+1. 创建缺失表；
+2. 添加 `user.is_site_owner`、`board.sort_order` 等缺失列，并创建“至多一名站长”的部分唯一索引；
+3. 按固定顺序补齐并更新六个板块：`综合讨论`、`观鸟记录`、`东方鸟类考据`、
+   `绘画与创作`、`摄影交流`、`东方二次同人`。
+
+生产升级顺序必须是：**验证数据库备份 → 停止旧 worker → 解包新代码 →
+执行 `initialize_database()` → 核验列/索引/六板块/站长数 → 启动新 worker → 健康检查**。
+不能先启动新代码再补列，否则首页会在查询 `board.sort_order` 时 500。
+
+维护入口不会自动选择站长。待所有者明确指定经过邮箱验证的用户 ID 后，首次任命使用：
+
+```bash
+cd /srv/touhou
+sudo -u www-data .venv/bin/python appoint_site_owner.py <USER_ID>
+```
+
+该命令只接受不可变数字 ID；对同一用户重复执行是幂等的，若已有不同站长则拒绝，
+不会自动转移最高权限。`set_admin.py` / `make_me_admin.py` 已停用；管理员任免只允许
+站长在 `/admin/users` 页面执行。
 
 ---
 

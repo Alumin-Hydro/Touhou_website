@@ -1,6 +1,13 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from flask_login import UserMixin
+from sqlalchemy import Index, false, text
 from app import db, login_manager
+
+
+def utcnow():
+    """Return naive UTC for existing SQLite DateTime columns without deprecation."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 
 # ── 成长体系：单一数据源 ──────────────────────────────────────────
 # 积分 = 帖子数 × 3 + 回复数（见 User.score）。等级 / 成就都读下面这两份常量，
@@ -16,9 +23,11 @@ RANKS = [
     (5, '雏鸟', 'green'),
     (0, '初来乍到', 'gray'),
 ]
-# 管理员是身份而非积分档位，单独表示（曾被在 3 处各画一遍，现收敛到等级这一处）。
+# 站长 / 管理员是身份而非积分档位，单独表示。
 ADMIN_RANK_NAME = '幻想乡管理员'
 ADMIN_RANK_COLOR = 'dark'
+SITE_OWNER_RANK_NAME = '幻想乡站长'
+SITE_OWNER_RANK_COLOR = 'red'
 
 # 成就定义：(指标, 阈值, 名称, 描述, 颜色)；指标 ∈ {'post','comment','bird'}。
 ACHIEVEMENTS = [
@@ -42,12 +51,13 @@ def rank_ladder():
         cond = f'积分 {lo}+' if hi is None else f'积分 {lo}–{hi}'
         ladder.append({'name': name, 'color': color, 'cond': cond})
     ladder.append({'name': ADMIN_RANK_NAME, 'color': ADMIN_RANK_COLOR, 'cond': '管理员特权'})
+    ladder.append({'name': SITE_OWNER_RANK_NAME, 'color': SITE_OWNER_RANK_COLOR, 'cond': '站长身份'})
     return ladder
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -56,9 +66,16 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128))
     verified = db.Column(db.Boolean, default=False)
     is_admin = db.Column(db.Boolean, default=False)
+    # 站长是唯一最高应用角色；不要求同时把 is_admin 设为 True，避免双标记状态漂移。
+    is_site_owner = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False,
+        server_default=false(),
+    )
     is_muted = db.Column(db.Boolean, default=False)
     mute_expires = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
     # 个人资料
     bio = db.Column(db.Text, nullable=True)
     avatar_url = db.Column(db.String(256), nullable=True)
@@ -68,10 +85,32 @@ class User(UserMixin, db.Model):
     search_scope = db.Column(db.String(20), default='all')
     search_type = db.Column(db.String(20), default='all')
 
-    posts = db.relationship('Post', backref='author', lazy='dynamic')
-    comments = db.relationship('Comment', backref='author', lazy='dynamic')
-    sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender', lazy='dynamic')
-    received_messages = db.relationship('Message', foreign_keys='Message.receiver_id', backref='receiver', lazy='dynamic')
+    posts = db.relationship('Post', backref='author', lazy='dynamic', passive_deletes=True)
+    comments = db.relationship('Comment', backref='author', lazy='dynamic', passive_deletes=True)
+    sent_messages = db.relationship(
+        'Message',
+        foreign_keys='Message.sender_id',
+        backref='sender',
+        lazy='dynamic',
+        passive_deletes=True,
+    )
+    received_messages = db.relationship(
+        'Message',
+        foreign_keys='Message.receiver_id',
+        backref='receiver',
+        lazy='dynamic',
+        passive_deletes=True,
+    )
+
+    __table_args__ = (
+        Index(
+            'uq_user_single_site_owner',
+            'is_site_owner',
+            unique=True,
+            sqlite_where=text('is_site_owner = 1'),
+            postgresql_where=text('is_site_owner = true'),
+        ),
+    )
 
     def set_password(self, password):
         from werkzeug.security import generate_password_hash
@@ -86,18 +125,36 @@ class User(UserMixin, db.Model):
 
     def is_temporarily_muted(self):
         if self.is_muted and self.mute_expires:
-            return self.mute_expires > datetime.utcnow()
+            return self.mute_expires > utcnow()
         return False
 
     def can_post(self):
         if not self.is_muted:
             return True
-        if self.mute_expires and datetime.utcnow() > self.mute_expires:
+        if self.mute_expires and utcnow() > self.mute_expires:
             self.is_muted = False
             self.mute_expires = None
             db.session.commit()
             return True
         return False
+
+    @property
+    def is_staff(self):
+        """可进入管理页并执行日常管理的站务人员。"""
+        return bool(self.is_site_owner or self.is_admin)
+
+    @property
+    def can_manage_content(self):
+        """可越过内容所有权编辑、置顶或删除帖子/回复。"""
+        return self.is_staff
+
+    @property
+    def role_label(self):
+        if self.is_site_owner:
+            return '站长'
+        if self.is_admin:
+            return '管理员'
+        return '普通用户'
 
     @property
     def post_count(self):
@@ -118,6 +175,8 @@ class User(UserMixin, db.Model):
 
     def get_rank(self):
         """当前等级 {'name','color'}，读自 RANKS 单一数据源。"""
+        if self.is_site_owner:
+            return {'name': SITE_OWNER_RANK_NAME, 'color': SITE_OWNER_RANK_COLOR}
         if self.is_admin:
             return {'name': ADMIN_RANK_NAME, 'color': ADMIN_RANK_COLOR}
         score = self.score
@@ -147,16 +206,21 @@ class Board(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True, nullable=False)
     description = db.Column(db.String(200))
+    sort_order = db.Column(db.Integer, nullable=False, default=1000, server_default=text('1000'))
     posts = db.relationship('Post', backref='board', lazy='dynamic')
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(128), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    board_id = db.Column(db.Integer, db.ForeignKey('board.id'))
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'), nullable=False
+    )
+    board_id = db.Column(
+        db.Integer, db.ForeignKey('board.id', ondelete='RESTRICT'), nullable=False
+    )
     bird_name = db.Column(db.String(64))
     location = db.Column(db.String(128))
     photo_url = db.Column(db.String(256))
@@ -167,14 +231,22 @@ class Post(db.Model):
 class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
+    created_at = db.Column(db.DateTime, default=utcnow)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'), nullable=False
+    )
+    post_id = db.Column(
+        db.Integer, db.ForeignKey('post.id', ondelete='CASCADE'), nullable=False
+    )
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
     is_read = db.Column(db.Boolean, default=False)
-    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    sender_id = db.Column(
+        db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'), nullable=False
+    )
+    receiver_id = db.Column(
+        db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'), nullable=False
+    )

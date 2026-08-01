@@ -1,13 +1,7 @@
-from app import create_app, db
-from app.models import User
+#!/usr/bin/env python3
+"""Retired: do not bypass the station-owner role boundary."""
 
-app = create_app()
-with app.app_context():
-    username = input("请输入你的用户名: ")
-    user = User.query.filter_by(username=username).first()
-    if not user:
-        print(f"用户 '{username}' 不存在")
-    else:
-        user.is_admin = True
-        db.session.commit()
-        print(f"用户 '{username}' 已成为管理员")
+raise SystemExit(
+    "make_me_admin.py 已停用：管理员任免只能由站长在 /admin/users 执行；"
+    "首次任命站长请使用 appoint_site_owner.py <user_id>。"
+)

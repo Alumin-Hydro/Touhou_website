@@ -10,7 +10,7 @@ forum_bp = Blueprint('forum', __name__)
 @forum_bp.route('/board/<int:board_id>')
 def board(board_id):
     """板块内帖子列表，置顶帖子优先，再按时间倒序"""
-    board = Board.query.get_or_404(board_id)
+    board = db.get_or_404(Board, board_id)
     page = request.args.get('page', 1, type=int)
     posts = board.posts.order_by(Post.is_pinned.desc(), Post.created_at.desc()).paginate(page=page, per_page=20)
     return render_template('forum/board.html', board=board, posts=posts)
@@ -18,7 +18,7 @@ def board(board_id):
 @forum_bp.route('/post/<int:post_id>')
 def view_post(post_id):
     """查看单个帖子及其回复"""
-    post = Post.query.get_or_404(post_id)
+    post = db.get_or_404(Post, post_id)
     return render_template('forum/post.html', post=post)
 
 @forum_bp.route('/new_post/<int:board_id>', methods=['GET', 'POST'])
@@ -29,7 +29,7 @@ def new_post(board_id):
         flash('您当前被禁言，无法发布新帖子')
         return redirect(url_for('forum.board', board_id=board_id))
 
-    board = Board.query.get_or_404(board_id)
+    board = db.get_or_404(Board, board_id)
     if request.method == 'POST':
         title = request.form['title']
         content = request.form['content']
@@ -56,8 +56,8 @@ def new_post(board_id):
 @login_required
 def edit_post(post_id):
     """编辑帖子：作者本人或管理员可编辑"""
-    post = Post.query.get_or_404(post_id)
-    if post.author != current_user and not current_user.is_admin:
+    post = db.get_or_404(Post, post_id)
+    if post.author != current_user and not current_user.can_manage_content:
         abort(403)
     if request.method == 'POST':
         post.title = request.form['title']
@@ -77,8 +77,8 @@ def edit_post(post_id):
 @login_required
 def delete_post(post_id):
     """删除帖子：作者本人或管理员可删除"""
-    post = Post.query.get_or_404(post_id)
-    if post.author != current_user and not current_user.is_admin:
+    post = db.get_or_404(Post, post_id)
+    if post.author != current_user and not current_user.can_manage_content:
         abort(403)
     board_id = post.board_id
     delete_by_url(post.photo_url)
@@ -95,7 +95,7 @@ def add_comment(post_id):
         flash('您当前被禁言，无法回复')
         return redirect(url_for('forum.view_post', post_id=post_id))
 
-    post = Post.query.get_or_404(post_id)
+    post = db.get_or_404(Post, post_id)
     content = request.form['content']
     if content.strip():
         comment = Comment(content=content, user_id=current_user.id, post_id=post.id)
@@ -108,8 +108,8 @@ def add_comment(post_id):
 @login_required
 def delete_comment(comment_id):
     """删除回复：作者本人或管理员可删除"""
-    comment = Comment.query.get_or_404(comment_id)
-    if comment.author != current_user and not current_user.is_admin:
+    comment = db.get_or_404(Comment, comment_id)
+    if comment.author != current_user and not current_user.can_manage_content:
         abort(403)
     post_id = comment.post_id
     db.session.delete(comment)

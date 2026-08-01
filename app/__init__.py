@@ -18,6 +18,7 @@ def _enable_sqlite_wal(engine):
     @event.listens_for(engine, 'connect')
     def _set_pragmas(dbapi_conn, _record):
         cur = dbapi_conn.cursor()
+        cur.execute('PRAGMA foreign_keys=ON')       # 删除必须服从 FK，禁止留下无作者内容
         cur.execute('PRAGMA journal_mode=WAL')    # 读写不互相阻塞
         cur.execute('PRAGMA busy_timeout=15000')  # 拿不到锁时等待，而不是立刻报 database is locked
         cur.execute('PRAGMA synchronous=NORMAL')  # WAL 下的推荐值：掉电最多丢最后一个事务，不会损坏库
@@ -68,7 +69,7 @@ def create_app(config_class=Config):
     @app.route('/')
     def index():
         from app.models import Board, Post
-        boards = Board.query.all()
+        boards = Board.query.order_by(Board.sort_order, Board.id).all()
         latest_posts = Post.query.order_by(Post.created_at.desc()).limit(10).all()
         bird_board = Board.query.filter_by(name='观鸟记录').first() or (boards[0] if boards else None)
         return render_template('index.html', boards=boards, latest_posts=latest_posts, bird_board=bird_board)
@@ -80,7 +81,10 @@ def create_app(config_class=Config):
         unread_count = 0
         if current_user.is_authenticated:
             unread_count = Message.query.filter_by(receiver_id=current_user.id, is_read=False).count()
-        return dict(boards=Board.query.all(), unread_count=unread_count)
+        return dict(
+            boards=Board.query.order_by(Board.sort_order, Board.id).all(),
+            unread_count=unread_count,
+        )
 
     # CSRF 校验失败。WTF_CSRF_TIME_LIMIT=None 之后这只剩下 session 本身没了的情况
     # （关掉浏览器再回来、清了 cookie、轮换了 SECRET_KEY）—— 而那时候用户手里往往正
