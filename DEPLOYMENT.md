@@ -16,7 +16,7 @@
 | HTTPS | Nginx 80 → 443；Let's Encrypt 覆盖 apex + `www`；`certbot.timer` 自动续期 |
 | 安全 | CSRF；Secure/HttpOnly/SameSite=Lax Cookie；UFW 只放 22/80/443；安全组 TCP 只放 22/80/443（保留 ICMP）；Fail2ban |
 | 服务器 | 阿里云上海 ECS `i-uf60z751agi7ddrtt7cx`，公网 `106.14.66.88`，Ubuntu 24.04 |
-| 当前版本 | `a7b6585fe4b383df6b11cd2ee89577d238bfae53` |
+| 当前版本 | `e683d9e8ca576260a2c1fb9d3b1d2843b333a986` |
 
 ### 上线状态与剩余待办
 
@@ -38,6 +38,7 @@
 - `https://gensoumono.cn/` → Nginx → `127.0.0.1:8001`
 - 未知 Host/SNI 返回 444；Gunicorn 的 8001 不进入阿里云安全组，也不在 UFW 放行
 - 管理员密码不写进仓库或手册，统一存于 `~/.api_keys.json` 的 `gensoumono` 节（文件权限 600）
+- favicon：`app/static/icons/`；SVG + 16/32 PNG + Apple Touch + Web Manifest，版本参数为 `20260801-bird-seal`
 
 ---
 
@@ -399,6 +400,8 @@ Nginx 反代到 `127.0.0.1:8001`；`app/static/`（css、js、backgrounds）由 
 - `/var/backups/touhou/20260801-020722`：正式应用部署前的源码、`.env`、SQLite、systemd、Nginx
 - `/var/backups/touhou/20260801-021232`：切换最终 TLS Nginx 配置前
 - `/var/backups/touhou/20260801-024943`：移动端长标题换行热修前的 CSS 与基础模板
+- `/var/backups/touhou/20260801-122536`：favicon 模板与静态资源部署前
+- `/var/backups/touhou/20260801-122931`：Web Manifest MIME 的 Nginx 修复前
 - `/var/backups/touhou/20260801-020455`：第一次就绪探测过快时自动回滚使用的快照（保留作证据）
 
 回滚前先再做一份当前 DB 与配置备份。只回退移动端修复时，恢复 `024943` 中的
