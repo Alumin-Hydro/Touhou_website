@@ -144,6 +144,24 @@ def test_registration_form_exposes_password_requirement_without_provider_brand(a
     assert "基于126 SMTP" not in html
 
 
+def test_base_declares_favicon_assets(app):
+    client = app.test_client()
+    html = client.get("/").get_data(as_text=True)
+    assert 'rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg?v=20260801-bird-seal"' in html
+    assert 'rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png?v=20260801-bird-seal"' in html
+    assert 'rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png?v=20260801-bird-seal"' in html
+    assert 'rel="manifest" href="/static/icons/site.webmanifest?v=20260801-bird-seal"' in html
+    for path, mimetype in (
+        ("/static/icons/favicon.svg", "image/svg+xml"),
+        ("/static/icons/favicon-32x32.png", "image/png"),
+        ("/static/icons/apple-touch-icon.png", "image/png"),
+        ("/static/icons/site.webmanifest", "application/manifest+json"),
+    ):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert response.mimetype == mimetype
+
+
 def test_mobile_post_titles_wrap_and_stylesheet_cache_is_busted(app):
     client = app.test_client()
     css = client.get("/static/css/style.css").get_data(as_text=True)

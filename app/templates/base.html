@@ -6,6 +6,12 @@
     {# 图片直传 OSS 时，/oss/sign 这个 JSON 接口靠这个头过 CSRF 校验 #}
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}幻想博物志{% endblock %} </title>
+    <meta name="theme-color" content="#2a5c3e">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icons/favicon.svg', v='20260801-bird-seal') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32x32.png', v='20260801-bird-seal') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/favicon-16x16.png', v='20260801-bird-seal') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png', v='20260801-bird-seal') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='icons/site.webmanifest', v='20260801-bird-seal') }}">
     <link href="https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Noto+Serif+SC:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260801-mobile-wrap') }}">
     <style>
