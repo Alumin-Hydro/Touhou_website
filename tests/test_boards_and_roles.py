@@ -191,6 +191,24 @@ def test_role_endpoint_rejects_owner_target_and_invalid_role(app):
         assert member.is_admin is False
 
 
+def test_site_owner_cannot_promote_unverified_account(app):
+    owner_id, _, member_id, _ = _add_users(app)
+    with app.app_context():
+        member = db.session.get(User, member_id)
+        member.verified = False
+        db.session.commit()
+
+    client = app.test_client()
+    _login(client, owner_id)
+    response = client.post(
+        f"/admin/users/{member_id}/role",
+        data={"role": "admin"},
+    )
+    assert response.status_code == 409
+    with app.app_context():
+        assert db.session.get(User, member_id).is_admin is False
+
+
 def test_role_endpoint_requires_post_and_csrf(tmp_path):
     class CsrfConfig(Config):
         TESTING = True
@@ -511,20 +529,27 @@ def test_initial_site_owner_appointment_is_explicit_and_non_replaceable(app):
         first_id, second_id = first.id, second.id
         assert User.query.filter_by(is_site_owner=True).count() == 0
 
+        with pytest.raises(ValueError, match="username does not match"):
+            maintenance.appoint_initial_site_owner(first_id, "wrong-owner")
+        assert User.query.filter_by(is_site_owner=True).count() == 0
+
         with pytest.raises(ValueError, match="must not be muted"):
-            maintenance.appoint_initial_site_owner(first_id)
+            maintenance.appoint_initial_site_owner(first_id, "first-owner")
         first.is_muted = False
         db.session.commit()
 
-        appointed = maintenance.appoint_initial_site_owner(first_id)
+        appointed = maintenance.appoint_initial_site_owner(first_id, "first-owner")
         assert appointed.id == first_id
         assert appointed.is_site_owner is True
         assert appointed.is_admin is False
 
-        same = maintenance.appoint_initial_site_owner(first_id)
+        appointed.is_admin = True
+        db.session.commit()
+        same = maintenance.appoint_initial_site_owner(first_id, "first-owner")
         assert same.id == first_id
+        assert same.is_admin is False
         with pytest.raises(RuntimeError, match="already has a different station owner"):
-            maintenance.appoint_initial_site_owner(second_id)
+            maintenance.appoint_initial_site_owner(second_id, "second-owner")
 
 
 def test_postgresql_boolean_defaults_use_false_not_integer_zero():

@@ -13,8 +13,13 @@
         </div>
         <div class="profile-info">
             <h2 style="margin-bottom:0.3rem;">{{ profile_user.username }}</h2>
-            <div style="margin-bottom:0.5rem;">
-                <span class="rank-badge">{{ profile_user.get_rank_title() }}</span>
+            <div class="profile-badges">
+                {% if profile_user.is_staff %}
+                    <span class="role-pill {{ 'role-owner' if profile_user.is_site_owner else 'role-admin' }}">
+                        站务身份：{{ profile_user.role_label }}
+                    </span>
+                {% endif %}
+                <span class="rank-badge">贡献等级：{{ profile_user.get_rank_title() }}</span>
                 {% if profile_user.custom_title %}
                     <span class="custom-title-badge">{{ profile_user.custom_title }}</span>
                 {% endif %}

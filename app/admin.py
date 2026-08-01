@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from app import db
 from app.models import Comment, Post, User, utcnow
 from app.oss import delete_by_url, resolve_upload
+from app.content_rules import normalize_post_metadata
 
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -82,7 +83,7 @@ def set_user_role(user_id):
     role = request.form.get("role", "")
     if role not in {"admin", "member"}:
         abort(400)
-    if role == "admin" and user.is_muted:
+    if role == "admin" and (user.is_muted or not user.verified):
         abort(409)
 
     user.is_admin = role == "admin"
@@ -191,10 +192,19 @@ def toggle_pin(post_id):
 def edit_post(post_id):
     post = db.get_or_404(Post, post_id)
     if request.method == "POST":
+        bird_name = request.form.get("bird_name", "")
+        location = request.form.get("location", "")
+        try:
+            bird_name, location = normalize_post_metadata(
+                post.board.name, bird_name, location
+            )
+        except ValueError as error:
+            flash(str(error))
+            return render_template("admin/edit_post.html", post=post), 400
         post.title = request.form["title"]
         post.content = request.form["content"]
-        post.bird_name = request.form.get("bird_name", "")
-        post.location = request.form.get("location", "")
+        post.bird_name = bird_name
+        post.location = location
         # key 里编的是当前管理者的 id，不是原作者的。
         new_photo = resolve_upload(request.form.get("photo_key"), current_user.id)
         if new_photo:

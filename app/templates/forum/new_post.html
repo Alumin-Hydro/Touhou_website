@@ -35,10 +35,10 @@
 {% else %}
     {% set title_ph    = '简明描述你想分享的内容' %}
     {% set content_ph  = '分享你的想法、疑问或有趣见闻……' %}
-    {% set section_lbl = '观鸟信息' %}
+    {% set section_lbl = '相关信息' %}
     {% set section_req = false %}
-    {% set bird_lbl    = '鸟种名称' %}
-    {% set loc_lbl     = '观察地点' %}
+    {% set bird_lbl    = '相关鸟种 / 角色' %}
+    {% set loc_lbl     = '相关地点 / 出处' %}
     {% set photo_lbl   = '附图' %}
     {% set show_loc    = true %}
     {% set photo_first = false %}
@@ -90,13 +90,14 @@
             <div class="form-group" style="margin-bottom:0.8rem;">
                 <label>{{ bird_lbl }}</label>
                 {% if board.name == '观鸟记录' %}
-                    <input type="text" name="bird_name" placeholder="例如：朱鹭、黑鸢……">
+                    <input type="text" name="bird_name" required placeholder="例如：朱鹭、黑鸢……">
+                    <small style="display:block; margin-top:0.3rem; color:#6f5f50;">仅填写实际观察到的现实鸟类。</small>
                 {% elif board.name == '东方鸟类考据' %}
                     <input type="text" name="bird_name" placeholder="例如：射命丸文（鸦天狗）、朱鹮……">
                 {% elif board.name == '绘画与创作' %}
                     <input type="text" name="bird_name" placeholder="例如：射命丸文、姬海棠果……">
                 {% else %}
-                    <input type="text" name="bird_name" placeholder="例如：朱鹭、鸦天狗……">
+                    <input type="text" name="bird_name" placeholder="例如：朱鹭、米斯蒂娅……">
                 {% endif %}
             </div>
 
@@ -104,11 +105,11 @@
             <div class="form-group" style="margin-bottom:{% if not photo_first %}0{% else %}0.8rem{% endif %};">
                 <label>{{ loc_lbl }}</label>
                 {% if board.name == '观鸟记录' %}
-                    <input type="text" name="location" placeholder="例如：幻想乡妖怪之山山顶">
+                    <input type="text" name="location" required placeholder="例如：所在城市与公园；珍稀物种请模糊位置">
                 {% elif board.name == '东方鸟类考据' %}
                     <input type="text" name="location" placeholder="例如：永夜抄第五面、《文文。新闻》……">
                 {% else %}
-                    <input type="text" name="location" placeholder="例如：幻想乡妖怪之山">
+                    <input type="text" name="location" placeholder="例如：上海市某公园、《永夜抄》……">
                 {% endif %}
             </div>
             {% endif %}

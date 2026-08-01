@@ -79,7 +79,7 @@ def send_verification_email(user_email, username, token):
         <p>请点击以下链接验证您的邮箱（1小时内有效）：</p>
         <p><a href="{verify_url}">{verify_url}</a></p>
         <p>如果无法点击，请复制链接到浏览器打开。</p>
-        <p style="color:green;">—— 诚邀您一同观察幻想乡的鸟类！ ——</p>
+        <p style="color:green;">—— 一同记录现实鸟类、讨论东方创作！ ——</p>
     </body>
     </html>
     """

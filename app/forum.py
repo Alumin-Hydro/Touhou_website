@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.models import Board, Post, Comment, User
 from app.oss import resolve_upload, delete_by_url
+from app.content_rules import normalize_post_metadata
 from sqlalchemy import or_
 
 forum_bp = Blueprint('forum', __name__)
@@ -35,6 +36,13 @@ def new_post(board_id):
         content = request.form['content']
         bird_name = request.form.get('bird_name', '')
         location = request.form.get('location', '')
+        try:
+            bird_name, location = normalize_post_metadata(
+                board.name, bird_name, location
+            )
+        except ValueError as error:
+            flash(str(error))
+            return render_template('forum/new_post.html', board=board), 400
         # 图片已由浏览器直传 OSS，表单里只带回一个 key
         photo_url = resolve_upload(request.form.get('photo_key'), current_user.id) or ''
         post = Post(
@@ -60,10 +68,19 @@ def edit_post(post_id):
     if post.author != current_user and not current_user.can_manage_content:
         abort(403)
     if request.method == 'POST':
+        bird_name = request.form.get('bird_name', '')
+        location = request.form.get('location', '')
+        try:
+            bird_name, location = normalize_post_metadata(
+                post.board.name, bird_name, location
+            )
+        except ValueError as error:
+            flash(str(error))
+            return render_template('forum/edit_post.html', post=post), 400
         post.title = request.form['title']
         post.content = request.form['content']
-        post.bird_name = request.form.get('bird_name', '')
-        post.location = request.form.get('location', '')
+        post.bird_name = bird_name
+        post.location = location
         new_photo = resolve_upload(request.form.get('photo_key'), current_user.id)
         if new_photo:
             delete_by_url(post.photo_url)

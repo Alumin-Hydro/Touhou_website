@@ -169,7 +169,7 @@ def test_mobile_post_titles_wrap_and_stylesheet_cache_is_busted(app):
     assert re.search(r"\.post-meta\s*\{[^}]*overflow-wrap:\s*anywhere", css, re.S)
     assert re.search(r"^a\s*\{[^}]*overflow-wrap:\s*anywhere", css, re.M | re.S)
     html = client.get("/").get_data(as_text=True)
-    assert "style.css?v=20260801-staff-console" in html
+    assert "style.css?v=20260801-rules-role-fix" in html
 
 
 def test_smtp_message_from_header_contains_configured_sender_address(app, monkeypatch):

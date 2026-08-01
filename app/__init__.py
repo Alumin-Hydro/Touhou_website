@@ -74,6 +74,11 @@ def create_app(config_class=Config):
         bird_board = Board.query.filter_by(name='观鸟记录').first() or (boards[0] if boards else None)
         return render_template('index.html', boards=boards, latest_posts=latest_posts, bird_board=bird_board)
 
+    @app.route('/rules')
+    def rules():
+        """公开的论坛总则与六个板块专属规则。"""
+        return render_template('rules.html')
+
     # 全局上下文处理器：让所有模板都能访问 boards 和当前用户的未读私信数
     @app.context_processor
     def inject_globals():

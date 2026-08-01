@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from flask_login import UserMixin
 from sqlalchemy import Index, false, text
 from app import db, login_manager
+from app.content_rules import BIRDING_BOARD_NAME
 
 
 def utcnow():
@@ -23,12 +24,6 @@ RANKS = [
     (5, '雏鸟', 'green'),
     (0, '初来乍到', 'gray'),
 ]
-# 站长 / 管理员是身份而非积分档位，单独表示。
-ADMIN_RANK_NAME = '幻想乡管理员'
-ADMIN_RANK_COLOR = 'dark'
-SITE_OWNER_RANK_NAME = '幻想乡站长'
-SITE_OWNER_RANK_COLOR = 'red'
-
 # 成就定义：(指标, 阈值, 名称, 描述, 颜色)；指标 ∈ {'post','comment','bird'}。
 ACHIEVEMENTS = [
     ('post', 1, '初啼', '发表了第一篇帖子', 'green'),
@@ -50,8 +45,6 @@ def rank_ladder():
         hi = ordered[i + 1][0] - 1 if i + 1 < len(ordered) else None
         cond = f'积分 {lo}+' if hi is None else f'积分 {lo}–{hi}'
         ladder.append({'name': name, 'color': color, 'cond': cond})
-    ladder.append({'name': ADMIN_RANK_NAME, 'color': ADMIN_RANK_COLOR, 'cond': '管理员特权'})
-    ladder.append({'name': SITE_OWNER_RANK_NAME, 'color': SITE_OWNER_RANK_COLOR, 'cond': '站长身份'})
     return ladder
 
 
@@ -166,7 +159,11 @@ class User(UserMixin, db.Model):
 
     @property
     def bird_record_count(self):
-        return self.posts.filter(Post.bird_name != None, Post.bird_name != '').count()
+        return self.posts.join(Board).filter(
+            Board.name == BIRDING_BOARD_NAME,
+            Post.bird_name.is_not(None),
+            Post.bird_name != '',
+        ).count()
 
     @property
     def score(self):
@@ -174,11 +171,7 @@ class User(UserMixin, db.Model):
         return self.post_count * 3 + self.comment_count
 
     def get_rank(self):
-        """当前等级 {'name','color'}，读自 RANKS 单一数据源。"""
-        if self.is_site_owner:
-            return {'name': SITE_OWNER_RANK_NAME, 'color': SITE_OWNER_RANK_COLOR}
-        if self.is_admin:
-            return {'name': ADMIN_RANK_NAME, 'color': ADMIN_RANK_COLOR}
+        """贡献等级 {'name','color'}；站务身份由 role_label 独立表示。"""
         score = self.score
         for min_score, name, color in RANKS:
             if score >= min_score:
@@ -190,7 +183,7 @@ class User(UserMixin, db.Model):
         return self.get_rank()['name']
 
     def get_achievements(self):
-        """已达成的成就，读自 ACHIEVEMENTS 单一数据源。管理员身份由等级体现，不再作为成就。"""
+        """已达成的贡献成就，读自 ACHIEVEMENTS 单一数据源。"""
         metrics = {
             'post': self.post_count,
             'comment': self.comment_count,

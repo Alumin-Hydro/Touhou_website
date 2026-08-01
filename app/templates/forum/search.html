@@ -28,7 +28,10 @@
             {% endif %}
             <div class="user-search-info">
                 <strong>{{ u.username }}</strong>
-                <span class="rank-badge" style="font-size:0.72rem; padding:0.1rem 0.5rem;">{{ u.get_rank_title() }}</span>
+                {% if u.is_staff %}
+                    <span class="role-pill {{ 'role-owner' if u.is_site_owner else 'role-admin' }}" style="font-size:0.72rem; padding:0.1rem 0.5rem;">站务身份：{{ u.role_label }}</span>
+                {% endif %}
+                <span class="rank-badge" style="font-size:0.72rem; padding:0.1rem 0.5rem;">贡献等级：{{ u.get_rank_title() }}</span>
                 {% if u.custom_title %}
                     <span style="font-size:0.8rem; color:#7a6a5a;">{{ u.custom_title }}</span>
                 {% endif %}

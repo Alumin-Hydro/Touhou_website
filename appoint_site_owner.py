@@ -18,11 +18,15 @@ def main() -> None:
         description="Appoint the first verified station owner by user ID"
     )
     parser.add_argument("user_id", type=int, help="immutable numeric user ID")
+    parser.add_argument(
+        "expected_username",
+        help="Exact current username paired with USER_ID (fail-closed identity check)",
+    )
     args = parser.parse_args()
 
     app = create_app()
     with app.app_context():
-        owner = appoint_initial_site_owner(args.user_id)
+        owner = appoint_initial_site_owner(args.user_id, args.expected_username)
         print(f"station owner: id={owner.id} username={owner.username}")
 
 

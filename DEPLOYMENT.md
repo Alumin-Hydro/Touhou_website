@@ -226,16 +226,77 @@ with app.app_context():
 执行 `initialize_database()` → 核验列/索引/六板块/站长数 → 启动新 worker → 健康检查**。
 不能先启动新代码再补列，否则首页会在查询 `board.sort_order` 时 500。
 
-维护入口不会自动选择站长。待所有者明确指定经过邮箱验证的用户 ID 后，首次任命使用：
+维护入口不会自动选择站长。单独任命首任站长时，待所有者明确指定经过邮箱验证的用户 ID 与当前精确用户名后，可使用：
 
 ```bash
 cd /srv/touhou
-sudo -u www-data .venv/bin/python appoint_site_owner.py <USER_ID>
+sudo -u www-data .venv/bin/python appoint_site_owner.py <USER_ID> '<EXPECTED_USERNAME>'
 ```
 
-该命令只接受不可变数字 ID；对同一用户重复执行是幂等的，若已有不同站长则拒绝，
-不会自动转移最高权限。`set_admin.py` / `make_me_admin.py` 已停用；管理员任免只允许
+该命令同时核对不可变数字 ID 与当前精确用户名；对同一用户重复执行是幂等的，并会纠正与站长身份互斥的管理员标志。若已有不同站长则拒绝，
+不会自动转移最高权限。`set_admin.py` / `make_me_admin.py` 已停用；日常管理员任免只允许
 站长在 `/admin/users` 页面执行。
+
+### 首次同时初始化站长与管理员
+
+若一次上线需要同时指定首任站长和管理员，**不得**先运行上述单站长命令、再通过网页提升管理员；两次独立提交会留下半完成状态。必须在同一停服窗口内执行仓库内的 `ops/assign_initial_roles_atomic.py`。
+
+以下命令给出完整可执行合同；`<...>` 必须来自停服前只读盘点，不能按相似用户名猜测：
+
+```bash
+cd /srv/touhou
+STAMP=$(date +%Y%m%d-%H%M%S)
+BACKUP="/var/backups/touhou/$STAMP"
+MARKER=/run/touhou-role-bootstrap.json
+DB=/var/lib/touhou/forum.db
+
+# 1. 停服并 runtime-mask 精确的生产 unit，消除检查后被自动/手动重启的窗口。
+sudo systemctl stop touhou.service
+sudo systemctl mask --runtime touhou.service
+STATE=$(sudo systemctl show touhou.service --property=LoadState --property=ActiveState)
+test "$STATE" = $'LoadState=masked\nActiveState=inactive'
+
+# 2. 用 SQLite backup API 创建一致性备份并验证；不要只 cp 活跃 WAL 数据库。
+sudo install -d -m 700 "$BACKUP"
+sudo python3 - "$DB" "$BACKUP/forum.db" <<'PY'
+import sqlite3, sys
+source = sqlite3.connect(sys.argv[1])
+backup = sqlite3.connect(sys.argv[2])
+with backup:
+    source.backup(backup)
+assert backup.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+assert backup.execute('PRAGMA foreign_key_check').fetchall() == []
+source.close(); backup.close()
+PY
+sudo chmod 600 "$BACKUP/forum.db"
+
+# 3. 停服后为数据库当前 inode 创建五分钟内有效的 0600 证明。
+sudo .venv/bin/python - "$DB" "$MARKER" <<'PY'
+import sys
+from pathlib import Path
+from ops.assign_initial_roles_atomic import write_offline_marker
+write_offline_marker(Path(sys.argv[1]), Path(sys.argv[2]))
+PY
+
+# 4. 同一事务完成两项角色变更并保留既有管理员。
+sudo .venv/bin/python ops/assign_initial_roles_atomic.py \
+  --database "$DB" --offline-marker "$MARKER" \
+  --owner-id <OWNER_ID> --owner-username '<EXACT_OWNER_USERNAME>' \
+  --admin-id <ADMIN_ID> --admin-username '<EXACT_ADMIN_USERNAME>' \
+  --preserve-admin '<EXISTING_ADMIN_ID>:<EXACT_EXISTING_ADMIN_USERNAME>'
+
+# 5. 只有脚本成功并完成新连接复核后才解除 mask、启动服务。
+sudo rm -f "$MARKER"
+sudo systemctl unmask --runtime touhou.service
+sudo systemctl start touhou.service
+sudo systemctl is-active --quiet touhou.service
+```
+
+CLI 将 `touhou.service` 硬绑定为受管 unit，并在操作开始、事务开始、提交前、提交后分别复核 `masked + inactive`。数据库证明文件同时绑定 resolve path、device 与 inode；脚本保持原 inode 文件描述符，并复核 SQLite 实际连接、唯一索引所属表/列/谓词、目标 ID+精确用户名、邮箱验证、禁言状态、需保留管理员和无关用户快照。
+
+提交前任一断言失败会回滚当前 SQL 事务。**提交后的新连接/完整性复核若失败，SQL 已提交，不能声称事务回滚；此时服务继续保持 masked+inactive，必须删除 `forum.db-wal` / `forum.db-shm`，从 `$BACKUP/forum.db` 恢复主库，重新核验后才能解除 mask。** 若这是源码发布窗口的一部分，源码与数据库须从同一回滚目录一起恢复。
+
+原子脚本及离线/回滚测试位于仓库 `ops/` 与 `tests/test_ops_safety.py`；发布前必须先提交，再确认 `git archive HEAD` 含这些路径。
 
 ---
 

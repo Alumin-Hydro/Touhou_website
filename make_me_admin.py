@@ -3,5 +3,5 @@
 
 raise SystemExit(
     "make_me_admin.py 已停用：管理员任免只能由站长在 /admin/users 执行；"
-    "首次任命站长请使用 appoint_site_owner.py <user_id>。"
+    "首次任命站长请使用 appoint_site_owner.py <user_id> <expected_username>。"
 )

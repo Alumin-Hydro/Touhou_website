@@ -171,6 +171,71 @@ with tempfile.TemporaryDirectory(prefix="gensoumono-mobile-") as tmp:
             )
             page.screenshot(path="/tmp/gensoumono-mobile-nav-open.png", full_page=True)
 
+            rules_response = page.goto(
+                f"{base_url}/rules", wait_until="domcontentloaded"
+            )
+            assert rules_response and rules_response.status == 200
+            assert page.get_by_role("heading", name="论坛规则", exact=True).is_visible()
+            assert page.get_by_role("heading", name="板块专属规则").is_visible()
+            real_record_copy = page.get_by_text("记录须基于实际观察", exact=False)
+            assert real_record_copy.count() >= 1
+            assert real_record_copy.first.is_visible()
+            assert page.get_by_text("真实或虚构", exact=False).count() == 0
+            rules_contrast = page.evaluate(
+                """() => {
+                    const channel = value => {
+                        value /= 255;
+                        return value <= 0.04045
+                            ? value / 12.92
+                            : Math.pow((value + 0.055) / 1.055, 2.4);
+                    };
+                    const luminance = color => {
+                        const values = color.match(/\d+(?:\.\d+)?/g)
+                            .slice(0, 3).map(Number).map(channel);
+                        return 0.2126 * values[0] + 0.7152 * values[1] + 0.0722 * values[2];
+                    };
+                    const measure = selector => {
+                        const style = getComputedStyle(document.querySelector(selector));
+                        const foreground = luminance(style.color);
+                        const background = luminance(style.backgroundColor);
+                        return {
+                            color: style.color,
+                            backgroundColor: style.backgroundColor,
+                            ratio: (Math.max(foreground, background) + 0.05) /
+                                (Math.min(foreground, background) + 0.05)
+                        };
+                    };
+                    return {
+                        kicker: measure('.rules-kicker'),
+                        effective: measure('.rules-effective-note strong')
+                    };
+                }"""
+            )
+            mobile_rules = page.evaluate(
+                """() => {
+                    const table = document.querySelector('.rules-table-wrap');
+                    return {
+                        clientWidth: document.documentElement.clientWidth,
+                        scrollWidth: document.documentElement.scrollWidth,
+                        tableClientWidth: table.clientWidth,
+                        tableScrollWidth: table.scrollWidth
+                    };
+                }"""
+            )
+            page.screenshot(path="/tmp/gensoumono-rules-mobile.png", full_page=True)
+
+            profile_response = page.goto(
+                f"{base_url}/user/station-owner", wait_until="domcontentloaded"
+            )
+            assert profile_response and profile_response.status == 200
+            assert page.get_by_text("站务身份：站长", exact=True).is_visible()
+            assert page.get_by_text("贡献等级：初来乍到", exact=True).is_visible()
+            assert page.get_by_text("管理员特权", exact=False).count() == 0
+            mobile_profile = page.evaluate(
+                "() => ({clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth})"
+            )
+            page.screenshot(path="/tmp/gensoumono-profile-role-mobile.png", full_page=True)
+
             page.goto(f"{base_url}/auth/login", wait_until="domcontentloaded")
             page.locator('input[name="username"]').fill("station-owner")
             page.locator('input[name="password"]').fill("local-smoke-password")
@@ -211,17 +276,30 @@ with tempfile.TemporaryDirectory(prefix="gensoumono-mobile-") as tmp:
                 "() => ({clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth})"
             )
             page.screenshot(path="/tmp/gensoumono-users-desktop.png", full_page=True)
+            page.goto(f"{base_url}/rules", wait_until="domcontentloaded")
+            desktop_rules = page.evaluate(
+                "() => ({clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth})"
+            )
+            page.screenshot(path="/tmp/gensoumono-rules-desktop.png", full_page=True)
             browser.close()
 
         assert mobile_home["longTitleVisible"] is True
         assert mobile_home["longUsernameVisible"] is True
         assert mobile_home["scrollWidth"] <= mobile_home["clientWidth"], mobile_home
+        assert mobile_rules["scrollWidth"] <= mobile_rules["clientWidth"], mobile_rules
+        assert mobile_rules["tableScrollWidth"] <= mobile_rules["tableClientWidth"], mobile_rules
+        assert rules_contrast["kicker"]["ratio"] >= 4.5, rules_contrast
+        assert rules_contrast["effective"]["ratio"] >= 4.5, rules_contrast
+        assert rules_contrast["kicker"]["backgroundColor"] != "rgba(0, 0, 0, 0)"
+        assert rules_contrast["effective"]["backgroundColor"] != "rgba(0, 0, 0, 0)"
+        assert mobile_profile["scrollWidth"] <= mobile_profile["clientWidth"], mobile_profile
         assert mobile_admin["scrollWidth"] <= mobile_admin["clientWidth"], mobile_admin
         assert mobile_users["scrollWidth"] <= mobile_users["clientWidth"], mobile_users
         assert desktop_admin["scrollWidth"] <= desktop_admin["clientWidth"], desktop_admin
         assert desktop_users["scrollWidth"] <= desktop_users["clientWidth"], desktop_users
+        assert desktop_rules["scrollWidth"] <= desktop_rules["clientWidth"], desktop_rules
         assert min_touch_height >= 44, min_touch_height
-        assert "v=20260801-staff-console" in mobile_home["stylesheet"]
+        assert "v=20260801-rules-role-fix" in mobile_home["stylesheet"]
         assert console_errors == [], console_errors
         assert page_errors == [], page_errors
         assert http_errors == [], http_errors
@@ -230,10 +308,14 @@ with tempfile.TemporaryDirectory(prefix="gensoumono-mobile-") as tmp:
             json.dumps(
                 {
                     "mobileHome": mobile_home,
+                    "mobileRules": mobile_rules,
+                    "rulesContrast": rules_contrast,
+                    "mobileProfile": mobile_profile,
                     "mobileAdmin": mobile_admin,
                     "mobileUsers": mobile_users,
                     "desktopAdmin": desktop_admin,
                     "desktopUsers": desktop_users,
+                    "desktopRules": desktop_rules,
                     "boards": rendered_boards,
                     "minTouchHeight": min_touch_height,
                     "consoleErrors": len(console_errors),

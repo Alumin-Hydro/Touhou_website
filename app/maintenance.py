@@ -17,7 +17,7 @@ from app.models import Board, User
 
 BOARD_CATALOG = (
     (10, "综合讨论", "关于东方 Project、观鸟与幻想乡的自由讨论"),
-    (20, "观鸟记录", "分享真实或幻想乡鸟类的观察记录"),
+    (20, "观鸟记录", "分享现实鸟类的观察记录"),
     (30, "东方鸟类考据", "考据东方 Project 中的鸟类、妖怪与民俗原型"),
     (40, "绘画与创作", "分享插画、文字、手作等原创作品"),
     (50, "摄影交流", "分享鸟类、自然与东方主题摄影作品和拍摄心得"),
@@ -364,16 +364,18 @@ def migrate_schema() -> None:
                 raise RuntimeError(f"SQLite foreign key check failed: {violations}")
 
 
-def appoint_initial_site_owner(user_id: int) -> User:
-    """Explicitly appoint the first station owner by immutable user ID.
+def appoint_initial_site_owner(user_id: int, expected_username: str) -> User:
+    """Explicitly appoint the first owner by immutable ID and exact username.
 
-    The operation is idempotent for the same user and refuses replacement.
-    Transferring ownership is intentionally a separate, manually reviewed task.
+    The operation is idempotent for the same user, normalizes the mutually
+    exclusive administrator flag, and refuses replacement.
     """
 
     target = db.session.get(User, user_id)
     if target is None:
         raise ValueError(f"user id {user_id} does not exist")
+    if target.username != expected_username:
+        raise ValueError("user id and expected username does not match")
     if not target.verified:
         raise ValueError("station owner must have a verified account")
     if target.is_muted:
@@ -382,7 +384,9 @@ def appoint_initial_site_owner(user_id: int) -> User:
     current_owner = User.query.filter_by(is_site_owner=True).first()
     if current_owner is not None:
         if current_owner.id == target.id:
-            return current_owner
+            target.is_admin = False
+            db.session.commit()
+            return target
         raise RuntimeError("site already has a different station owner")
 
     target.is_site_owner = True

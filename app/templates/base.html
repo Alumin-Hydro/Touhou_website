@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png', v='20260801-bird-seal') }}">
     <link rel="manifest" href="{{ url_for('static', filename='icons/site.webmanifest', v='20260801-bird-seal') }}">
     <link href="https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Noto+Serif+SC:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260801-staff-console') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='20260801-rules-role-fix') }}">
     <style>
         body {
             position: relative;
@@ -58,6 +58,7 @@
                         <a href="{{ url_for('forum.board', board_id=board.id) }}">{{ board.name }}</a>
                     {% endfor %}
                     <a href="{{ url_for('birding.bird_list') }}">鸟类图鉴</a>
+                    <a href="{{ url_for('rules') }}">论坛规则</a>
                     {% if current_user.is_authenticated and current_user.is_staff %}
                         <a href="{{ url_for('admin.dashboard') }}">管理后台</a>
                     {% endif %}
@@ -125,6 +126,7 @@
 
         <footer>
             <p>幻想博物志 | 记录幻想的天空 | 由朱鹭子Nipponia、Alumin_Hydro制作</p>
+            <p><a href="{{ url_for('rules') }}">论坛规则</a></p>
             {% if config.ICP_BEIAN %}
                 <p><a href="https://beian.miit.gov.cn" target="_blank" rel="noopener">{{ config.ICP_BEIAN }}</a></p>
             {% endif %}

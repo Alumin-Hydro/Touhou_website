@@ -15,13 +15,15 @@
             <label>内容</label>
             <textarea name="content" rows="10" required>{{ post.content }}</textarea>
         </div>
+        {% set birding_required = post.board.name == '观鸟记录' %}
         <div class="form-group">
-            <label>鸟种名称（选填）</label>
-            <input type="text" name="bird_name" value="{{ post.bird_name or '' }}">
+            <label>鸟种名称{% if birding_required %} <span style="color:var(--red-accent);">*</span>{% else %}（选填）{% endif %}</label>
+            <input type="text" name="bird_name" value="{{ post.bird_name or '' }}"{% if birding_required %} required{% endif %}>
+            {% if birding_required %}<small style="display:block; margin-top:0.3rem; color:#6f5f50;">仅填写实际观察到的现实鸟类。</small>{% endif %}
         </div>
         <div class="form-group">
-            <label>观察地点（选填）</label>
-            <input type="text" name="location" value="{{ post.location or '' }}">
+            <label>观察地点{% if birding_required %} <span style="color:var(--red-accent);">*</span>{% else %}（选填）{% endif %}</label>
+            <input type="text" name="location" value="{{ post.location or '' }}"{% if birding_required %} required{% endif %}>
         </div>
         <div class="form-group">
             <label>观察照片（选填）</label>
