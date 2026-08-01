@@ -254,8 +254,11 @@ DB=/var/lib/touhou/forum.db
 # 1. 停服并 runtime-mask 精确的生产 unit，消除检查后被自动/手动重启的窗口。
 sudo systemctl stop touhou.service
 sudo systemctl mask --runtime touhou.service
-STATE=$(sudo systemctl show touhou.service --property=LoadState --property=ActiveState)
-test "$STATE" = $'LoadState=masked\nActiveState=inactive'
+sudo systemctl daemon-reload
+MASK_TARGET=$(readlink /run/systemd/system/touhou.service)
+ACTIVE_STATE=$(sudo systemctl show touhou.service --property=ActiveState --value)
+test "$MASK_TARGET" = /dev/null
+test "$ACTIVE_STATE" = inactive
 
 # 2. 用 SQLite backup API 创建一致性备份并验证；不要只 cp 活跃 WAL 数据库。
 sudo install -d -m 700 "$BACKUP"
@@ -297,11 +300,12 @@ fi
 test "$ROLE_OK" = 1
 sudo rm -f "$MARKER"
 sudo systemctl unmask --runtime touhou.service
+sudo systemctl daemon-reload
 sudo systemctl start touhou.service
 sudo systemctl is-active --quiet touhou.service
 ```
 
-CLI 将 `touhou.service` 硬绑定为受管 unit，并在操作开始、事务开始、提交前、提交后分别复核 `masked + inactive`。数据库证明文件同时绑定 resolve path、device 与 inode；脚本保持原 inode 文件描述符，并复核 SQLite 实际连接、唯一索引所属表/列/谓词、目标 ID+精确用户名、邮箱验证、禁言状态、需保留管理员和无关用户快照。
+CLI 将 `touhou.service` 和 `127.0.0.1:8001` 硬绑定为受管目标，并在操作开始、事务开始、提交前、提交后分别复核 runtime mask symlink 仍指向 `/dev/null`、unit 为 `inactive` 且应用端口无监听。Ubuntu systemd 对已加载过的 runtime-masked unit 仍可能报告 `LoadState=loaded`，因此不得以 `LoadState=masked` 字符串作为停服证明。数据库证明文件同时绑定 resolve path、device 与 inode；脚本保持原 inode 文件描述符，并复核 SQLite 实际连接、唯一索引所属表/列/谓词、目标 ID+精确用户名、邮箱验证、禁言状态、需保留管理员和无关用户快照。
 
 提交前任一断言失败会回滚当前 SQL 事务。**提交后的新连接/完整性复核若失败，SQL 已提交，不能声称事务回滚；此时服务继续保持 masked+inactive，必须删除 `forum.db-wal` / `forum.db-shm`，从 `$BACKUP/forum.db` 恢复主库，重新核验后才能解除 mask。** 若这是源码发布窗口的一部分，源码与数据库须从同一回滚目录一起恢复。
 

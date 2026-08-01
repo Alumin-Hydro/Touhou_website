@@ -204,7 +204,9 @@ def test_database_path_swap_after_marker_check_is_rejected(tmp_path, monkeypatch
     assert _snapshot(original_hardlink) == before
 
 
-def test_cli_service_guard_requires_runtime_masked_inactive_unit(monkeypatch):
+def test_cli_service_guard_requires_runtime_mask_inactive_unit_and_closed_port(
+    tmp_path, monkeypatch
+):
     class Result:
         returncode = 0
 
@@ -213,7 +215,9 @@ def test_cli_service_guard_requires_runtime_masked_inactive_unit(monkeypatch):
                 f"LoadState={load_state}\nActiveState={active_state}\n"
             )
 
-    state = {"load": "loaded", "active": "active"}
+    runtime_mask = tmp_path / "touhou.service"
+    monkeypatch.setattr(roles, "MANAGED_RUNTIME_MASK", runtime_mask)
+    state = {"load": "loaded", "active": "active", "port_closed": True}
     calls = []
 
     def fake_run(command, **kwargs):
@@ -223,14 +227,22 @@ def test_cli_service_guard_requires_runtime_masked_inactive_unit(monkeypatch):
         return Result(state["load"], state["active"])
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    with pytest.raises(RuntimeError, match="not runtime-masked"):
+    monkeypatch.setattr(
+        roles, "_app_port_is_closed", lambda: state["port_closed"]
+    )
+    with pytest.raises(RuntimeError, match="no runtime mask"):
         roles._assert_managed_service_runtime_masked()
 
-    state["load"] = "masked"
+    runtime_mask.symlink_to("/dev/null")
     with pytest.raises(RuntimeError, match="still active"):
         roles._assert_managed_service_runtime_masked()
 
     state["active"] = "inactive"
+    state["port_closed"] = False
+    with pytest.raises(RuntimeError, match="still accepting"):
+        roles._assert_managed_service_runtime_masked()
+
+    state["port_closed"] = True
     roles._assert_managed_service_runtime_masked()
     assert len(calls) == 3
 

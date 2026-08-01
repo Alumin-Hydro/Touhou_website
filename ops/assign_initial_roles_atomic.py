@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import socket
 import sqlite3
 import stat
 import subprocess
@@ -16,6 +17,8 @@ from typing import Callable
 
 OFFLINE_MARKER_MAX_AGE_SECONDS = 300
 MANAGED_SYSTEMD_UNIT = "touhou.service"
+MANAGED_RUNTIME_MASK = Path("/run/systemd/system/touhou.service")
+MANAGED_APP_ADDRESS = ("127.0.0.1", 8001)
 DatabaseIdentity = tuple[int, int]
 
 
@@ -75,7 +78,20 @@ def _assert_offline_marker(database: Path, marker: Path) -> DatabaseIdentity:
     return device, inode
 
 
+def _app_port_is_closed() -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.settimeout(0.5)
+        return probe.connect_ex(MANAGED_APP_ADDRESS) != 0
+
+
 def _assert_managed_service_runtime_masked() -> None:
+    if (
+        not MANAGED_RUNTIME_MASK.is_symlink()
+        or os.readlink(MANAGED_RUNTIME_MASK) != "/dev/null"
+    ):
+        raise RuntimeError(
+            f"systemd unit {MANAGED_SYSTEMD_UNIT} has no runtime mask"
+        )
     result = subprocess.run(
         [
             "systemctl",
@@ -96,14 +112,18 @@ def _assert_managed_service_runtime_masked() -> None:
         name, separator, value = line.partition("=")
         if separator:
             properties[name] = value
-    if properties.get("LoadState") != "masked":
+    if properties.get("LoadState") not in {"loaded", "masked"}:
         raise RuntimeError(
-            f"systemd unit {MANAGED_SYSTEMD_UNIT} is not runtime-masked"
+            f"systemd unit {MANAGED_SYSTEMD_UNIT} has unexpected load state"
         )
     if properties.get("ActiveState") != "inactive":
         raise RuntimeError(
             f"systemd unit {MANAGED_SYSTEMD_UNIT} is still "
             f"{properties.get('ActiveState', 'unknown')}"
+        )
+    if not _app_port_is_closed():
+        raise RuntimeError(
+            f"application port {MANAGED_APP_ADDRESS[1]} is still accepting connections"
         )
 
 
