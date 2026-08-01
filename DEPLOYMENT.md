@@ -244,6 +244,7 @@ sudo -u www-data .venv/bin/python appoint_site_owner.py <USER_ID> '<EXPECTED_USE
 以下命令给出完整可执行合同；`<...>` 必须来自停服前只读盘点，不能按相似用户名猜测：
 
 ```bash
+set -euo pipefail
 cd /srv/touhou
 STAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP="/var/backups/touhou/$STAMP"
@@ -279,13 +280,21 @@ write_offline_marker(Path(sys.argv[1]), Path(sys.argv[2]))
 PY
 
 # 4. 同一事务完成两项角色变更并保留既有管理员。
-sudo .venv/bin/python ops/assign_initial_roles_atomic.py \
+ROLE_OK=0
+if ROLE_RESULT=$(sudo .venv/bin/python ops/assign_initial_roles_atomic.py \
   --database "$DB" --offline-marker "$MARKER" \
   --owner-id <OWNER_ID> --owner-username '<EXACT_OWNER_USERNAME>' \
   --admin-id <ADMIN_ID> --admin-username '<EXACT_ADMIN_USERNAME>' \
-  --preserve-admin '<EXISTING_ADMIN_ID>:<EXACT_EXISTING_ADMIN_USERNAME>'
+  --preserve-admin '<EXISTING_ADMIN_ID>:<EXACT_EXISTING_ADMIN_USERNAME>'); then
+  ROLE_OK=1
+  printf '%s\n' "$ROLE_RESULT"
+else
+  printf '%s\n' '角色初始化失败：服务保持 runtime-masked + inactive，请先恢复并复核备份。' >&2
+  exit 1
+fi
 
 # 5. 只有脚本成功并完成新连接复核后才解除 mask、启动服务。
+test "$ROLE_OK" = 1
 sudo rm -f "$MARKER"
 sudo systemctl unmask --runtime touhou.service
 sudo systemctl start touhou.service

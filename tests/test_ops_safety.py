@@ -271,6 +271,22 @@ def test_cli_main_wires_the_service_guard_into_every_assignment(monkeypatch):
     assert captured["preserved_admins"] == ((1, "marisa"),)
 
 
+def test_documented_role_bootstrap_cannot_reach_unmask_after_failure():
+    deployment = (Path(__file__).parents[1] / "DEPLOYMENT.md").read_text()
+    section = deployment.split("### 首次同时初始化站长与管理员", 1)[1]
+    shell_block = re.search(r"```bash\n(.*?)\n```", section, re.S)
+    assert shell_block is not None
+    script = shell_block.group(1)
+
+    assert script.startswith("set -euo pipefail\n")
+    role_gate = script.index("if ROLE_RESULT=$(sudo .venv/bin/python")
+    failure_exit = script.index("exit 1", role_gate)
+    success_assertion = script.index('test "$ROLE_OK" = 1', failure_exit)
+    unmask = script.index("systemctl unmask --runtime touhou.service")
+    start = script.index("systemctl start touhou.service")
+    assert role_gate < failure_exit < success_assertion < unmask < start
+
+
 def _rgb(hex_color: str) -> tuple[float, float, float]:
     return tuple(int(hex_color[index:index + 2], 16) / 255 for index in (1, 3, 5))
 
