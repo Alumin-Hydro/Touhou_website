@@ -16,7 +16,7 @@
 | HTTPS | Nginx 80 → 443；Let's Encrypt 覆盖 apex + `www`；`certbot.timer` 自动续期 |
 | 安全 | CSRF；Secure/HttpOnly/SameSite=Lax Cookie；UFW 只放 22/80/443；安全组 TCP 只放 22/80/443（保留 ICMP）；Fail2ban |
 | 服务器 | 阿里云上海 ECS `i-uf60z751agi7ddrtt7cx`，公网 `106.14.66.88`，Ubuntu 24.04 |
-| 当前版本 | `15f4d0beb6a5d6a4cd7a1565802a5da76d0a5667` |
+| 当前版本 | `93b5a50c4684041db395c0cf9c37a10d0754adfe` |
 
 ### 上线状态与剩余待办
 
@@ -486,6 +486,17 @@ Nginx 反代到 `127.0.0.1:8001`；`app/static/`（css、js、backgrounds）由 
 - 两次停服预演在任何数据写入前因 systemd `LoadState` 的平台差异 fail-closed，并都自动恢复旧服务；第三次迁移预审因 SQLAlchemy 返回整数 `1` 而非布尔对象被误拒，亦从 `/var/backups/touhou/20260801-203718` 自动恢复并验证；修正测试合同后最终事务成功；
 - 当前首选完整回滚点：`/var/backups/touhou/20260801-203820`；包含更新前源码、`.env`、SQLite、systemd 与 Nginx 快照。凭证值未写入仓库或文档。
 
+### 媒体体验更新（2026-08-08）
+
+生产部署 `93b5a50c4684041db395c0cf9c37a10d0754adfe`（纯模板/静态资源，无 schema 迁移、无角色变更）：
+
+- 帖子图片改为站内 `<dialog>` 灯箱查看原图，大图是普通 `<img>`，移动端长按即可调起系统保存菜单；不再用 `<a>` 直跳 OSS 附件地址触发强制下载；Esc / 点击背板 / 关闭按钮均可退出，焦点归还触发按钮；
+- 四个上传入口（发帖、用户编辑、站务编辑、头像）在选图后弹出「上传原图 / 裁剪后上传」选择；裁剪编辑器支持拖动取景、缩放滑杆、自由/1:1/4:3/16:9 比例，canvas 编码为 JPEG 后仍走既有签名、魔术字节复核与用户 key 约束链路；AVIF/HEIC 已被 `prepare` 转码过的文件不再重复询问；
+- 「继续上次阅读」：帖子页在加载、pagehide、visibilitychange 时把当前帖子写入 localStorage，下次访问任一页面弹出恢复提示；URL 白名单（仅 `/forum/post/N`）、标题一律 textContent、每 session 只提示一次；
+- 本地验收：`50 passed` 全量 + `tests/media_experience_smoke.py` 真实 Chromium 390px 全链路（灯箱开关 / 恢复提示 / 裁剪确认后以 JPEG 重编码到达 `/oss/sign`），零 console 错误；`mobile_layout_smoke` 无回归；
+- 公网验收：`public-media-smoke.py` 在 390px 验证灯箱开关不跳走、读完帖子后首页弹出恢复提示并正确回链、线上 `oss-upload.js`/`media-ui.js` 为新版本；首页/帖子页/登录页均无横向溢出；部署脚本两次 fail-closed（grep 目标错误、`cd /srv/touhou` 遗漏）均自动回滚并验证服务恢复；
+- 回滚点：`/var/backups/touhou/20260808-133736`（本更新前的源码、`.env`、SQLite、systemd、Nginx 快照）。
+
 ---
 
 ## 8. 生产路径、备份与回滚
@@ -511,10 +522,11 @@ Nginx 反代到 `127.0.0.1:8001`；`app/static/`（css、js、backgrounds）由 
 - `/var/backups/touhou/20260801-122931`：Web Manifest MIME 的 Nginx 修复前
 - `/var/backups/touhou/20260801-170314`：六板块、RBAC 与 SQLite 约束迁移前
 - `/var/backups/touhou/20260801-203718`：本次规则/角色发布迁移预审误拒后已自动恢复并验证
-- `/var/backups/touhou/20260801-203820`：规则页、现实观鸟语义与角色初始化前；当前首选完整回滚点
+- `/var/backups/touhou/20260801-203820`：规则页、现实观鸟语义与角色初始化前
+- `/var/backups/touhou/20260808-133736`：媒体体验更新（灯箱/裁剪/阅读恢复）前；当前首选完整回滚点
 - `/var/backups/touhou/20260801-020455`：第一次就绪探测过快时自动回滚使用的快照（保留作证据）
 
 回滚前先再做一份当前 DB 与配置备份。只回退移动端修复时，恢复 `024943` 中的
 `style.css` / `base.html` 并重启 `touhou`；回退 TLS 时恢复 `021232` 的 Nginx 配置，
-执行 `nginx -t` 后 reload；当前版本完整回退优先使用 `203820` 的源码、环境和数据库；只有需要退回最初上线基线时才使用 `020722`。任何回退后都要复核：
+执行 `nginx -t` 后 reload；当前版本完整回退优先使用 `20260808-133736` 的源码、环境和数据库；只有需要退回最初上线基线时才使用 `020722`。任何回退后都要复核：
 `systemctl is-active touhou nginx`、本机 8001、公网 HTTPS、注册登录与 OSS。
