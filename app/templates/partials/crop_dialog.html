@@ -1,0 +1,50 @@
+{# 上传前「原图 / 裁剪」对话框：oss-upload.js 在用户选图后 showModal()。
+   - 选「上传原图」：文件原样进入既有签名/复核链路，不重编码；
+   - 选「裁剪后上传」：下方出现预览图（可拖动取框、滚轮/滑杆缩放），
+     确认后用 canvas 编码为 JPEG 再走既有链路。
+   所有比例按钮带 data-crop-ratio，缩放滑杆带 data-crop-zoom，确认/原图/裁剪
+   按钮带 data-crop-action —— 这些钩子是自动化验收的契约，改名前先改测试。 #}
+<dialog id="image-crop-dialog" aria-modal="true" aria-label="上传原图或裁剪后上传"
+        style="max-width:min(94vw, 720px); padding:1.2rem; border:none; border-radius:16px; background:var(--paper, #fffdf6); color:var(--ink, #3a3128);">
+    <h3 style="margin:0 0 0.4rem; font-size:1.05rem;">选图后可选择上传原图或裁剪后上传</h3>
+    <p style="margin:0 0 0.8rem; font-size:0.85rem; color:#7a6a5a;">
+        原图不压缩、完整保存；只想突出主体时，可以裁剪后再上传（裁剪结果会转成 JPEG）。
+    </p>
+    <div style="display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:0.8rem;">
+        <button type="button" class="btn" data-crop-action="original" style="min-height:44px;">上传原图</button>
+        <button type="button" class="btn" data-crop-action="crop"
+                style="background:var(--paper-dark, #efe6d4); color:var(--ink, #3a3128); min-height:44px;">裁剪后上传</button>
+        <button type="button" data-crop-action="cancel" aria-label="取消这次选图"
+                style="margin-left:auto; background:none; border:none; color:#7a6a5a; cursor:pointer; text-decoration:underline; min-height:44px;">取消</button>
+    </div>
+    <div data-crop-editor hidden>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:0.6rem;">
+            <span style="font-size:0.85rem; color:#7a6a5a;">比例：</span>
+            <button type="button" data-crop-ratio="free" style="min-height:44px; padding:0 0.7rem;">自由</button>
+            <button type="button" data-crop-ratio="1" style="min-height:44px; padding:0 0.7rem;">1:1</button>
+            <button type="button" data-crop-ratio="1.3333" style="min-height:44px; padding:0 0.7rem;">4:3</button>
+            <button type="button" data-crop-ratio="1.7778" style="min-height:44px; padding:0 0.7rem;">16:9</button>
+        </div>
+        <div data-crop-stage
+             style="position:relative; overflow:hidden; border-radius:12px; border:2px solid var(--green-soft, #7ba98c); background:#20211d; touch-action:none; max-width:100%; margin:0 auto;">
+            <img data-crop-image alt="裁剪预览" draggable="false"
+                 style="display:block; max-width:none; user-select:none; -webkit-user-drag:none; transform-origin:0 0;">
+            <div data-crop-frame
+                 style="position:absolute; border:2px dashed rgba(255,255,255,0.9); box-shadow:0 0 0 9999px rgba(0,0,0,0.45); pointer-events:none; box-sizing:border-box;"></div>
+        </div>
+        <label style="display:flex; align-items:center; gap:0.6rem; margin-top:0.6rem; font-size:0.85rem; color:#7a6a5a;">
+            缩放
+            <input type="range" data-crop-zoom min="100" max="400" value="100" style="flex:1; min-height:44px;">
+        </label>
+        <p style="font-size:0.8rem; color:#7a6a5a; margin:0.3rem 0 0.8rem;">拖动图片调整取景框位置，滑杆或双指缩放。</p>
+        <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+            <button type="button" class="btn" data-crop-action="confirm" style="min-height:44px;">确认裁剪并上传</button>
+            <button type="button" class="btn" data-crop-action="back"
+                    style="background:var(--paper-dark, #efe6d4); color:var(--ink, #3a3128); min-height:44px;">返回</button>
+        </div>
+    </div>
+</dialog>
+<style>
+    #image-crop-dialog::backdrop { background: rgba(24, 20, 14, 0.72); }
+    #image-crop-dialog [data-crop-ratio].active { outline:2px solid var(--green-deep, #2a5c3e); }
+</style>

@@ -1174,3 +1174,8 @@ th {
         padding-right: 0;
     }
 }
+/* hidden 属性必须压过卡片/提示条上的内联 display:flex —— 否则
+   「继续上次阅读」提示条会永远显示（UA 的 [hidden] 规则优先级太低）。 */
+[hidden] {
+    display: none !important;
+}

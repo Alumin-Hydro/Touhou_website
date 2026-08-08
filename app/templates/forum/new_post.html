@@ -142,5 +142,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/oss-upload.js') }}"></script>
+{% include "partials/crop_dialog.html" %}
+<script src="{{ url_for('static', filename='js/oss-upload.js', v='20260801-media-workflow') }}"></script>
 {% endblock %}

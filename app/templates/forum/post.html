@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ post.title }} - 东方观鸟论坛——幻想博物志{% endblock %}
 {% block content %}
+{# 「继续上次阅读」的写入端：media-ui.js 在页面隐藏/卸载时把这份帖子存进
+   localStorage。url 经 safeUrl 白名单（仅 /forum/post/N）校验，标题截 160 字。 #}
+<span data-resume-post-url="{{ url_for('forum.view_post', post_id=post.id) }}"
+      data-resume-post-title="{{ post.title }}" hidden></span>
 <div class="card {% if post.bird_name %}bird-card{% endif %}">
     <h2>
         {% if post.is_pinned %}<span class="pin-badge">[顶]</span> {% endif %}
@@ -14,12 +18,17 @@
        之前这段嵌在 bird_name 的判断里，导致那类帖子的图根本不显示。 #}
     {% if post.photo_url %}
         <div style="margin:0.6rem 0;">
-            {# 页面上是 OSS 实时生成的缩略图；20MB 原图只在用户点击时才传 #}
-            <a href="{{ post.photo_url }}" target="_blank" rel="noopener">
+            {# 点击开灯箱看原图，手机上长按灯箱里的大图即可保存 —— 之前是
+               <a href=OSS原图>，OSS 默认域名对导航请求一律按附件下载，
+               用户点一下就开始下载 20MB 原图，体验很差（也没法先看再决定）。 #}
+            <button type="button" class="post-image-trigger js-image-lightbox"
+                    data-lightbox-src="{{ post.photo_url }}"
+                    data-lightbox-alt="{{ post.title }} 的原图"
+                    style="background:none; border:none; padding:0; cursor:zoom-in; display:block; max-width:100%;">
                 <img src="{{ post.photo_url | thumb(1200) }}" alt="观察照片"
-                     style="max-width:100%; max-height:480px; border-radius:10px; border:2px solid var(--green-soft); display:block; cursor:zoom-in;">
-            </a>
-            <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">点击查看原图</small>
+                     style="max-width:100%; max-height:480px; border-radius:10px; border:2px solid var(--green-soft); display:block;">
+            </button>
+            <small style="display:block; margin-top:0.3rem; color:#7a6a5a;">点击放大，长按图片可保存</small>
         </div>
     {% endif %}
     <div class="post-meta" style="margin-bottom:1rem;">

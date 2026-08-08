@@ -213,6 +213,216 @@
         });
     }
 
+    /* ── 上传前「原图 / 裁剪」选择 ───────────────────────────────
+     * 选图后先弹 #image-crop-dialog 问用户要原图还是裁剪：
+     *   - 原图：resolve(null)，主流程拿到 null 就按原样走既有 prepare/sign/PUT；
+     *   - 裁剪：进入编辑器（拖动取景、滑杆缩放、四种比例），确认后 resolve(canvas
+     *     编出来的 JPEG File)，主流程把它当普通文件继续走 —— 魔术字节、签名、
+     *     后端复核整条安全链一字未动。
+     *   - 取消：reject，主流程按「已取消」还原预览。
+     */
+    function cropDialogParts() {
+        var dialog = document.getElementById('image-crop-dialog');
+        if (!dialog || typeof dialog.showModal !== 'function') return null;
+        return {
+            dialog: dialog,
+            editor: dialog.querySelector('[data-crop-editor]'),
+            stage: dialog.querySelector('[data-crop-stage]'),
+            image: dialog.querySelector('[data-crop-image]'),
+            frame: dialog.querySelector('[data-crop-frame]'),
+            zoom: dialog.querySelector('[data-crop-zoom]'),
+            ratios: dialog.querySelectorAll('[data-crop-ratio]'),
+            byAction: function (name) {
+                return dialog.querySelector('[data-crop-action="' + name + '"]');
+            }
+        };
+    }
+
+    /* 编辑器状态：scale 是「显示尺寸 / 原始尺寸」，offset 是图片左上角相对
+     * 舞台的位移（CSS px）。取景框在舞台坐标系里，最终裁剪区域 =
+     * (frame - offset) / scale 映射回原图像素。 */
+    function renderCropPreview(parts, state) {
+        var dw = state.bitmap.width * state.scale;
+        var dh = state.bitmap.height * state.scale;
+        // 舞台包住缩放后的图，但最大不超过视口宽度
+        parts.stage.style.width = Math.min(dw, state.maxStage) + 'px';
+        parts.stage.style.height = (dh * (Math.min(dw, state.maxStage) / dw)) + 'px';
+        var shownScale = Math.min(1, state.maxStage / dw);
+        state.shown = shownScale;  // 舞台可能比图小（窄屏），frame 计算要用实际显示比例
+        parts.image.style.width = dw + 'px';
+        parts.image.style.height = dh + 'px';
+        parts.image.style.transform =
+            'translate(' + state.offset.x + 'px,' + state.offset.y + 'px)' +
+            ' scale(' + shownScale + ')';
+        var fw = state.frame.w * shownScale;
+        var fh = state.frame.h * shownScale;
+        parts.frame.style.left = state.frame.x * shownScale + 'px';
+        parts.frame.style.top = state.frame.y * shownScale + 'px';
+        parts.frame.style.width = fw + 'px';
+        parts.frame.style.height = fh + 'px';
+    }
+
+    function encodeCrop(bitmap, region) {
+        var w = Math.max(1, Math.round(region.w));
+        var h = Math.max(1, Math.round(region.h));
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        // JPEG 无透明通道：不铺底的话 PNG 透明部分会被编成黑色
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(bitmap, region.x, region.y, region.w, region.h, 0, 0, w, h);
+        return new Promise(function (resolve, reject) {
+            canvas.toBlob(function (blob) {
+                if (blob) resolve(blob);
+                else reject(new Error('裁剪编码失败'));
+            }, 'image/jpeg', 0.92);
+        });
+    }
+
+    function chooseOriginalOrCrop(file, say) {
+        var parts = cropDialogParts();
+        if (!parts || !window.createImageBitmap) return Promise.resolve(null);  // 无对话框/老浏览器：维持原样上传
+
+        return decode(file).then(function (bitmap) {
+            return new Promise(function (resolve, reject) {
+                var objectUrl = URL.createObjectURL(file);
+                parts.image.src = objectUrl;
+                var state = {
+                    bitmap: bitmap,
+                    scale: 1, shown: 1,
+                    offset: { x: 0, y: 0 },
+                    frame: { x: 0, y: 0, w: 0, h: 0 },
+                    ratio: null,  // null = 自由
+                    maxStage: Math.min(parts.dialog.clientWidth - 48 || 640, window.innerWidth * 0.9)
+                };
+
+                function cleanup() {
+                    URL.revokeObjectURL(objectUrl);
+                    bitmap.close();
+                    parts.editor.hidden = true;
+                    parts.dialog.close();
+                }
+                function done(result) { cleanup(); resolve(result); }
+                function cancel() {
+                    cleanup();
+                    reject(new Error('已取消上传'));
+                }
+
+                // 初始：图片按舞台宽度铺开，取景框取居中的 80%
+                function resetView() {
+                    var fit = state.maxStage / bitmap.width;
+                    state.scale = Math.min(fit, 1);
+                    var dw = bitmap.width * state.scale;
+                    var dh = bitmap.height * state.scale;
+                    state.offset = { x: 0, y: 0 };
+                    var fw = dw * 0.8, fh = dh * 0.8;
+                    if (state.ratio) {
+                        if (fw / fh > state.ratio) fw = fh * state.ratio;
+                        else fh = fw / state.ratio;
+                    }
+                    state.frame = {
+                        x: (dw - fw) / 2, y: (dh - fh) / 2, w: fw, h: fh
+                    };
+                    parts.zoom.value = Math.round(state.scale * 100 * (1 / fit) * (fit < 1 ? 100 : 1)) ;
+                    parts.zoom.value = Math.max(100, Math.round((state.scale / fit) * 100));
+                    renderCropPreview(parts, state);
+                }
+
+                // 拖动取景：按下记录起点，移动时平移 offset（图随手动），框不动
+                var dragStart = null;
+                parts.stage.onpointerdown = function (e) {
+                    parts.stage.setPointerCapture(e.pointerId);
+                    dragStart = { x: e.clientX, y: e.clientY, ox: state.offset.x, oy: state.offset.y };
+                };
+                parts.stage.onpointermove = function (e) {
+                    if (!dragStart) return;
+                    state.offset.x = dragStart.ox + (e.clientX - dragStart.x);
+                    state.offset.y = dragStart.oy + (e.clientY - dragStart.y);
+                    renderCropPreview(parts, state);
+                };
+                parts.stage.onpointerup = parts.stage.onpointercancel = function () {
+                    dragStart = null;
+                };
+
+                parts.zoom.oninput = function () {
+                    var fit = state.maxStage / bitmap.width;
+                    var base = Math.min(fit, 1);
+                    state.scale = base * (parts.zoom.value / 100);
+                    renderCropPreview(parts, state);
+                };
+
+                Array.prototype.forEach.call(parts.ratios, function (btn) {
+                    btn.addEventListener('click', function () {
+                        Array.prototype.forEach.call(parts.ratios, function (b) { b.classList.remove('active'); });
+                        btn.classList.add('active');
+                        var v = btn.getAttribute('data-crop-ratio');
+                        state.ratio = v === 'free' ? null : parseFloat(v);
+                        // 按比例重算框尺寸，保持中心
+                        var cx = state.frame.x + state.frame.w / 2;
+                        var cy = state.frame.y + state.frame.h / 2;
+                        var dw = bitmap.width * state.scale;
+                        var dh = bitmap.height * state.scale;
+                        var fw = state.frame.w, fh = state.frame.h;
+                        if (state.ratio) {
+                            fw = Math.min(dw * 0.8, dh * 0.8 * state.ratio);
+                            fh = fw / state.ratio;
+                            if (fh > dh * 0.8) { fh = dh * 0.8; fw = fh * state.ratio; }
+                        }
+                        state.frame = { x: cx - fw / 2, y: cy - fh / 2, w: fw, h: fh };
+                        renderCropPreview(parts, state);
+                    });
+                });
+
+                parts.byAction('original').onclick = function () { done(null); };
+                parts.byAction('cancel').onclick = cancel;
+                parts.byAction('crop').onclick = function () {
+                    parts.editor.hidden = false;
+                    resetView();
+                };
+                parts.byAction('back').onclick = function () {
+                    parts.editor.hidden = true;
+                };
+                parts.byAction('confirm').onclick = function () {
+                    say('正在裁剪…');
+                    // 舞台坐标 → 原图像素：先除以显示比例回到缩放图坐标，
+                    // 再减 offset、除以 scale。
+                    var s = state.scale * state.shown;
+                    var region = {
+                        x: (state.frame.x * state.shown - state.offset.x) / s,
+                        y: (state.frame.y * state.shown - state.offset.y) / s,
+                        w: state.frame.w / state.scale,
+                        h: state.frame.h / state.scale
+                    };
+                    // 夹紧到图片边界，防浮点误差裁到图外
+                    region.x = Math.max(0, Math.min(region.x, bitmap.width - 1));
+                    region.y = Math.max(0, Math.min(region.y, bitmap.height - 1));
+                    region.w = Math.max(1, Math.min(region.w, bitmap.width - region.x));
+                    region.h = Math.max(1, Math.min(region.h, bitmap.height - region.y));
+                    encodeCrop(bitmap, region).then(function (blob) {
+                        var cropped = new File([blob], 'crop.jpg', { type: 'image/jpeg' });
+                        done(cropped);
+                    }, function (err) {
+                        cleanup();
+                        reject(err);
+                    });
+                };
+                parts.dialog.addEventListener('cancel', function onEsc() {
+                    parts.dialog.removeEventListener('cancel', onEsc);
+                    cancel();
+                });
+
+                parts.editor.hidden = true;
+                parts.dialog.showModal();
+            });
+        }, function () {
+            // 浏览器连预览都解不开 —— 交给后面的 prepare 报「无法识别格式」，
+            // 这里不重复弹错。
+            return null;
+        });
+    }
+
     function setup(input) {
         var form = input.form;
         var keyField = form.querySelector('input[name$="_key"]');
@@ -304,8 +514,19 @@
             bar.value = 0;
             say('正在准备上传…');
 
-            prepare(file, say).then(function (cand) {
+            prepare(file, say).then(function (prepared) {
                 if (ticket !== seq) return null;
+                // 原生支持的格式（jpg/png/gif/webp/bmp/tiff）问用户要原图还是裁剪；
+                // 已经被 prepare 转码过的（AVIF/HEIC）不再弹一次，直接走。
+                if (prepared.blob !== file) return { file: prepared.blob, skipChoice: true };
+                return chooseOriginalOrCrop(file, say).then(function (chosen) {
+                    return { file: chosen || file, skipChoice: false };
+                });
+            }).then(function (sel) {
+                if (!sel || ticket !== seq) return null;
+                return prepare(sel.file, say);
+            }).then(function (cand) {
+                if (!cand || ticket !== seq) return null;
                 return signOrCompress(cand, kind, say);
             }).then(function (r) {
                 if (!r || ticket !== seq) return null;

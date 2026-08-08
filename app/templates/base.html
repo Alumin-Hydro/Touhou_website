@@ -122,6 +122,33 @@
             {% endif %}
         {% endwith %}
 
+        {# 「继续上次阅读」提示条：media-ui.js 发现 localStorage 里存着上次看过的
+           帖子（且不在那一页）时才揭开 hidden。标题一律走 textContent。 #}
+        <div id="resume-post-prompt" class="card" role="status" hidden
+             style="display:flex; flex-wrap:wrap; align-items:center; gap:0.8rem; background:#fdf3e3; border-left:5px solid var(--green-soft);">
+            <a href="#" data-resume-link style="color:var(--green-deep); font-weight:600;">继续上次阅读</a>
+            <button type="button" data-resume-dismiss
+                    style="margin-left:auto; background:none; border:none; color:#7a6a5a; cursor:pointer; font-size:0.85rem; text-decoration:underline; min-height:44px;">不再提示</button>
+        </div>
+
+        {# 全站图片灯箱：帖子页图片按钮（.js-image-lightbox）点击后由 media-ui.js
+           填入原图地址并 showModal()。大图是普通 <img>，手机长按即可调起系统保存菜单。
+           Esc / 点击背板 / 关闭按钮都能退出，焦点在关闭后还给触发按钮。 #}
+        <dialog id="image-lightbox" aria-modal="true" aria-label="查看原图"
+                style="max-width:min(96vw, 1400px); max-height:92vh; padding:0; border:none; border-radius:14px; background:transparent; overflow:visible;">
+            <div style="position:relative;">
+                <img id="image-lightbox-image" alt=""
+                     style="display:block; max-width:96vw; max-height:86vh; border-radius:14px; background:#1c1c1c;">
+                <button type="button" data-lightbox-close aria-label="关闭原图"
+                        style="position:absolute; top:0.4rem; right:0.4rem; width:44px; height:44px; border-radius:50%; border:none; background:rgba(20,20,20,0.75); color:#fff; font-size:1.3rem; cursor:pointer; line-height:1;">×</button>
+            </div>
+            <small style="display:block; text-align:center; color:#efe6d4; margin-top:0.4rem;">长按图片可保存原图 · 点击空白处或按 Esc 关闭</small>
+        </dialog>
+        <style>
+            /* dialog 背板遮罩；Jinja 模板块里放 <style> 只出现一次，安全 */
+            #image-lightbox::backdrop { background: rgba(24, 20, 14, 0.82); }
+        </style>
+
         {% block content %}{% endblock %}
 
         <footer>
@@ -153,5 +180,6 @@
         }
     </script>
     {% block extra_js %}{% endblock %}
+    <script src="{{ url_for('static', filename='js/media-ui.js', v='20260801-media-workflow') }}"></script>
 </body>
 </html>
